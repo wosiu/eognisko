@@ -14,6 +14,7 @@ ClientContext::ClientContext(uint32_t id, tcp::socket tcp_socket,
 	expected_ack = 0;
 	mix.data = new char[mix_fifo_maxsize];
 	data_fifo_state = FILLING;
+	//udp_endpoint = nullptr;
 }
 
 ClientContext::~ClientContext() {
@@ -43,6 +44,8 @@ void ClientContext::addData(const char* data, size_t s) {
 	if ( mix.len >= high_mark ) {
 		data_fifo_state = ACTIVE;
 	}
+
+	expected_ack++;
 }
 
 void ClientContext::resetDataStatus() {

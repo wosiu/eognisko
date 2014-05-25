@@ -28,7 +28,7 @@ private:
 	tcp::acceptor acceptor_;
 	tcp::socket socket_;
 	boost::asio::deadline_timer timer_;
-	static const uint16_t REPORT_INTERVAL_S = 1;
+	static const uint16_t REPORT_INTERVAL_S = 15; //TODO
 
 	void do_accept();
 	void send_reports_datagrams();

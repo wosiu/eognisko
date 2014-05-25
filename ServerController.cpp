@@ -12,7 +12,9 @@ ServerController::ServerController() {
 	low_mark = 0;
 	high_mark = fifo_size;
 	buffer_len = 10;
-	tx_interval = 5;
+	tx_interval = 1000; // ms //TODO 5
+
+	is_tcp_server_on = is_udp_server_on = false;
 }
 
 std::shared_ptr<ClientContext> ServerController::addClient(
@@ -20,7 +22,7 @@ std::shared_ptr<ClientContext> ServerController::addClient(
 	std::shared_ptr<ClientContext> cc(
 			new ClientContext(next_id, std::move(tcp_socket), fifo_size, low_mark, high_mark));
 	clients.insert(std::make_pair(next_id, cc));
-	LOG("Client added, id: " + std::to_string(next_id));
+	INFO("Client added, id: " + std::to_string(next_id));
 	next_id++;
 	return cc;
 }
@@ -34,17 +36,16 @@ bool ServerController::removeClient(int id) {
 	boost::system::error_code ec;
 	auto tcp_endpoint = mit->second->getTcpSocket().remote_endpoint(ec);
 	if (ec) {
-		LOG("Removing [TCP] disconnected client.");
+		INFO("Removing [TCP] disconnected client.");
 	} else {
-		LOG("Removing [TCP] connected client.");
+		INFO("Removing [TCP] connected client.");
 	}
 	auto udp_endpoint = mit->second->getUdpEndpoint();
 	if (map_udp_endpoint.erase(udp_endpoint) != 1) {
-		LOG(
-				"UDP endpoint mapping does not exist for removing client. Continue..");
+		INFO("UDP endpoint mapping does not exist for removing client. Continue..");
 	}
 	clients.erase(mit);
-	LOG("Client removed, id: " + std::to_string(id));
+	INFO("Client removed, id: " + std::to_string(id));
 	return true;
 }
 
@@ -83,5 +84,14 @@ std::string ServerController::mix() {
 	delete size;
 	delete inputs;
 
+	LOG("Result size: " + _(result.size()) + ", active clients: " + _(n) );
 	return result;
+}
+
+void ServerController::turnOnTcpSever() {
+	is_tcp_server_on = true;
+}
+
+void ServerController::turnOnUdpSever() {
+	is_udp_server_on = true;
 }

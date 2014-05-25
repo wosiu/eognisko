@@ -6,25 +6,18 @@
 #include <iostream>
 #include <cstdint>
 #include <climits>
+#include <string>
 #include <map>
 #include <boost/thread/mutex.hpp>
+#include <boost/asio.hpp>
 using namespace std;
 
-class chuj {
-public:
-	chuj(int &a) : a(a) {};
-	int a;
-
-};
 
 int main() {
+	boost::asio::ip::udp::endpoint ep;
 
-	int b = 4;
-	chuj c(b);
-	cout << c.a << endl;
-	b++;
-	cout << c.a << endl;
-
+	cout << ep.address().to_string() << endl;
+	cout << ep << endl;
 	return 0;
 }
 

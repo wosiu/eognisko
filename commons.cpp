@@ -5,4 +5,10 @@
 
 #include "commons.hpp"
 
+std::string endpointToString(boost::asio::ip::udp::endpoint ep) {
+	return ep.address().to_string() + ":" + std::to_string(ep.port());
+}
 
+std::string endpointToString(boost::asio::ip::tcp::endpoint ep) {
+	return ep.address().to_string() + ":" + std::to_string(ep.port());
+}

@@ -17,6 +17,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "ServerController.hpp"
 #include "ClientContext.hpp"
+#include "DatagramParser.hpp"
 #include "commons.hpp"
 
 using boost::asio::ip::udp;
@@ -29,10 +30,10 @@ public:
 private:
 	uint32_t mixed_datagrams_counter;
 	boost::asio::deadline_timer timer_sound_send, timer_udp_check;
-	const static uint16_t UDP_CHECK_INTERVAL_S = 1;
+	const static uint16_t UDP_CHECK_INTERVAL_S = 15; //TODO
 	ServerController& controller;
 	udp::socket socket_server_udp;
-    udp::endpoint new_client_endpoint;
+    udp::endpoint incoming_client_endpoint;
     boost::array<char, 65535> message_buffer;
     void store_mixed_data(uint32_t datagram_nr, std::string mixed_data);
     const std::string& get_stored_mixed_data(uint32_t datagram_nr) const;
@@ -41,6 +42,7 @@ private:
 	void processClientDatagram(size_t message_size);
 	void checkUdpConnections(const boost::system::error_code& error);
 	std::map<int, std::string> mixed_data_storage;
+	DatagramParser parser;
 
 };
 
@@ -50,6 +52,5 @@ class DatagramException: public std::exception
     return "Datagram does not exist.";
   }
 };
-
 
 #endif /* UDP_SERVER_HPP_ */

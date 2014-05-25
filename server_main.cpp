@@ -21,14 +21,14 @@ int main(int argc, char **argv) {
 	options_description desc("Allowed options");
 	desc.add_options()("help", "help view")(",p",
 			value<uint16_t>(&controller.port)->default_value(
-					10000 + (336071 % 10000)), "port number")(",F",
-			value<uint16_t>(&controller.fifo_size)->default_value(10560),
+					controller.port), "port number")(",F",
+			value<uint16_t>(&controller.fifo_size)->default_value(controller.fifo_size),
 			"FIFO size for client")(",L",
-			value<uint16_t>(&controller.low_mark)->default_value(0),
+			value<uint16_t>(&controller.low_mark)->default_value(controller.low_mark),
 			"low watermark")(",H", value<uint16_t>(), "high watermark")(",X",
-			value<uint16_t>(&controller.buffer_len)->default_value(10),
+			value<uint16_t>(&controller.buffer_len)->default_value(controller.buffer_len),
 			"buffer length")(",i",
-			value<uint16_t>(&controller.tx_interval)->default_value(5),
+			value<uint16_t>(&controller.tx_interval)->default_value(controller.tx_interval),
 			"tx interval");
 
 	variables_map vm;

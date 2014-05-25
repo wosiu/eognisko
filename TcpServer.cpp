@@ -8,9 +8,10 @@
 TcpServer::TcpServer(boost::asio::io_service& io_service,
 		ServerController& _controller) :
 		controller(_controller), acceptor_(io_service,
-				tcp::endpoint(tcp::v6(), _controller.port)), socket_(
+				tcp::endpoint(tcp::v4(), _controller.port)), socket_(
 				io_service), timer_(io_service, boost::posix_time::seconds(REPORT_INTERVAL_S)) {
-	LOG("TCP server started.");
+	INFO("TCP server started.");
+	controller.turnOnTcpSever();
 	do_accept();
 	timer_.async_wait(boost::bind(&TcpServer::send_reports_datagrams, this));
 }
@@ -26,22 +27,18 @@ void TcpServer::do_accept() {
 	{
 		if (!ec) {
 			// dodaje kleinta, zwraca referencje na kontekst z nim zwiazany
-			try {
-				auto cc = controller.addClient(std::move(socket_)); //throwable
+				auto cc = controller.addClient(std::move(socket_));
 				send_id_datagram(cc);
-				LOG("Client accepted, id: " + std::to_string(cc->getId()) );
+				INFO("Client accepted, id: " + std::to_string(cc->getId()) );
 				//TODO bad idea, beacouse of come and quit many times in small period of time
 				// then many send reports event would be queued in to short time
 				//remeber last report time and something..
 				//if it is a first client, start sending reports
 				/*if ( controller.clients.size() == 1 ) {
-				 LOG("First client. Start sending reports..");
+				 INFO("First client. Start sending reports..");
 				 timer_.expires_from_now(boost::posix_time::seconds(REPORT_INTERVAL_S))
 				 timer_.async_wait(boost::bind(&TcpServer::send_reports_datagrams, this));
 				 }*/
-			} catch (const std::exception &e) {
-				LOG(e.what());
-			}
 		} else {
 			ERR(ec);
 		}
@@ -64,7 +61,7 @@ void TcpServer::send_reports_datagrams() {
 				it != controller.clients.end(); ) {
 			auto endpoint = it->second->getTcpSocket().remote_endpoint(ec);
 			if (ec) {
-				LOG(ec);
+				INFO(ec);
 				auto id_to_rm = it->second->getId();
 				it++;
 				controller.removeClient(id_to_rm);
@@ -78,7 +75,7 @@ void TcpServer::send_reports_datagrams() {
 		}
 
 		std::string rendered = report.str();
-		//LOG("Sending report to clients: " + rendered);
+		LOG("Sending report: " + rendered);
 
 		for (auto it = controller.clients.begin();
 				it != controller.clients.end(); it++) {
@@ -103,7 +100,7 @@ void TcpServer::write_or_remove(std::shared_ptr<ClientContext> cc,
 	boost::asio::async_write(cc->getTcpSocket(), boost::asio::buffer(datagram),
 			[this, id](boost::system::error_code ec, std::size_t transferred) {
 				if (ec) {
-					LOG(ec);
+					INFO(ec);
 					controller.removeClient(id);
 				} else {
 					LOG("Datagram sent to client, id: " + std::to_string(id) + ".");

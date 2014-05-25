@@ -26,6 +26,10 @@ public:
 	std::shared_ptr<ClientContext> addClient(tcp::socket tcp_socket);
 	bool removeClient(int id);
 	std::string mix();
+	void turnOnTcpSever();
+	void turnOnUdpSever();
+	bool is_tcp_server_on, is_udp_server_on; //for developing aspects
+
 
 private:
 	uint32_t next_id;
