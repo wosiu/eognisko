@@ -17,40 +17,30 @@ ServerController::ServerController() {
 
 std::shared_ptr<ClientContext> ServerController::addClient(
 		tcp::socket tcp_socket) {
-
-	// Sprawdza czy client o podanym endpoincie juz nie istnieje
-	const tcp::endpoint& endpoint = tcp_socket.remote_endpoint(); //throwable!
-	auto mit = map_endpoint.find(endpoint);
-	if (mit != map_endpoint.end()) {
-		LOG("Client already exists.");
-		return mit->second;
-	}
 	std::shared_ptr<ClientContext> cc(
 			new ClientContext(next_id, std::move(tcp_socket)));
 	clients.insert(std::make_pair(next_id, cc));
+	LOG("Client added, id: " + std::to_string(next_id));
 	next_id++;
-	map_endpoint.insert(
-			std::make_pair(endpoint, cc));
-	LOG("Client added");
 	return cc;
 }
 
 bool ServerController::removeClient(int id) {
 	auto mit = clients.find(id);
 	if (mit == clients.end()) {
-		LOG("Cannot remove client that does not exist.");
+		ERR("Cannot remove client that does not exist.");
 		return false;
 	}
 	boost::system::error_code ec;
-	auto endpoint = mit->second->getTcpSocket().remote_endpoint(ec);
+	auto tcp_endpoint = mit->second->getTcpSocket().remote_endpoint(ec);
 	if (ec) {
 		LOG("Removing [TCP] disconnected client.");
-		endpoint = mit->second->getTcpEndpointCopy();
 	} else {
 		LOG("Removing [TCP] connected client.");
 	}
-	if (map_endpoint.erase(endpoint) != 1) {
-		ERR("Endpoint mapping does not exist for existing client. Continue removing..");
+	auto udp_endpoint = mit->second->getUdpEndpoint();
+	if (map_udp_endpoint.erase(udp_endpoint) != 1) {
+		LOG("UDP endpoint mapping does not exist for removing client. Continue..");
 	}
 	clients.erase(mit);
 	LOG("Client removed, id: " + std::to_string(id));

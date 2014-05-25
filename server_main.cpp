@@ -6,6 +6,7 @@
 #include <memory>
 #include <boost/program_options.hpp>
 #include "TcpServer.hpp"
+#include "UdpServer.hpp"
 #include "ServerController.hpp"
 #include "commons.hpp"
 
@@ -33,7 +34,7 @@ int main(int argc, char **argv) {
 	variables_map vm;
 	try {
 		store(parse_command_line(argc, argv, desc), vm);
-	} catch(boost::program_options::unknown_option& e) {
+	} catch (boost::program_options::unknown_option& e) {
 		std::cout << "Abort, " << e.what() << "\n";
 		return 0;
 	}
@@ -49,9 +50,10 @@ int main(int argc, char **argv) {
 	else
 		controller.high_mark = controller.fifo_size;
 
-
 	//Praca
 	TcpServer tcp_server(io_service, controller);
+	UdpServer udp_server(io_service, controller);
+
 	io_service.run();
 
 	return 0;

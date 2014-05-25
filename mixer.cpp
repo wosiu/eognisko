@@ -4,9 +4,7 @@
  */
 #include "mixer.hpp"
 
-#include <stdint.h>
-#include <stdexcept>
-#include <iostream>
+#include <climits>
 #include <boost/asio.hpp>
 
 void mixer(struct mixer_input* inputs, size_t n, void* output_buf,

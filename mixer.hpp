@@ -6,13 +6,14 @@
 #ifndef MIXER_HPP_
 #define MIXER_HPP_
 
+#include <cstdlib>
 
 struct mixer_input {
   void* data;       // Wskaźnik na dane w FIFO
   size_t len;       // Liczba dostępnych bajtów
   size_t consumed;  // Wartość ustawiana przez mikser, wskazująca, ile bajtów należy
                     // usunąć z FIFO.
-}
+};
 
 void mixer(
   struct mixer_input* inputs, size_t n,  // tablica struktur mixer_input, po jednej strukturze na każdą

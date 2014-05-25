@@ -9,12 +9,10 @@ TcpServer::TcpServer(boost::asio::io_service& io_service,
 		ServerController& _controller) :
 		controller(_controller), acceptor_(io_service,
 				tcp::endpoint(tcp::v6(), _controller.port)), socket_(
-				io_service), timer_(io_service, boost::posix_time::seconds(1)) {
+				io_service), timer_(io_service, boost::posix_time::seconds(REPORT_INTERVAL_S)) {
 	LOG("TCP server started.");
 	do_accept();
-	timer_.expires_from_now(boost::posix_time::seconds(REPORT_INTERVAL_S));
 	timer_.async_wait(boost::bind(&TcpServer::send_reports_datagrams, this));
-
 }
 
 void TcpServer::send_id_datagram(std::shared_ptr<ClientContext> cc) {

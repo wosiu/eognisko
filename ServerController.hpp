@@ -13,14 +13,15 @@
 #include "commons.hpp"
 
 using boost::asio::ip::tcp;
+using boost::asio::ip::udp;
 
 class ServerController {
 public:
 	ServerController();
     uint16_t port, fifo_size, low_mark, high_mark, buffer_len, tx_interval;
 	std::map<int, std::shared_ptr<ClientContext>> clients; //key: id
-	std::map<tcp::endpoint, std::shared_ptr<ClientContext> > map_endpoint;
-    std::shared_ptr<ClientContext> addClient(tcp::socket tcp_socket);
+	std::map<udp::endpoint, std::shared_ptr<ClientContext> > map_udp_endpoint;
+	std::shared_ptr<ClientContext> addClient(tcp::socket tcp_socket);
 	bool removeClient(int id);
 
 private:
