@@ -8,9 +8,11 @@
 
 #include <memory>
 #include <map>
+#include <vector>
 #include <boost/asio.hpp>
 #include "ClientContext.hpp"
 #include "commons.hpp"
+#include "mixer.hpp"
 
 using boost::asio::ip::tcp;
 using boost::asio::ip::udp;
@@ -23,6 +25,7 @@ public:
 	std::map<udp::endpoint, std::shared_ptr<ClientContext> > map_udp_endpoint;
 	std::shared_ptr<ClientContext> addClient(tcp::socket tcp_socket);
 	bool removeClient(int id);
+	std::string mix();
 
 private:
 	uint32_t next_id;

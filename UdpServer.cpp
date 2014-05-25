@@ -21,26 +21,27 @@ UdpServer::UdpServer(boost::asio::io_service& io_service,
 	timer_udp_check.async_wait(boost::bind(&UdpServer::checkUdpConnections, this, boost::asio::placeholders::error));
 }
 
+// run mixing and sending datagram DATA with mixed data to clients
 void UdpServer::sendMixed() {
-	// Note, that sending reports will start when first client come
 	if (controller.clients.empty()) {
 		LOG("No clients to send sound.");
 	} else {
 		LOG("Send sound");
-		//TODO mix
-		//auto mixed_data = controller.getMixedData();
-		auto mixed_data = "3=> \n3==> \n3===> \n";
+		auto mixed_data = controller.mix();
 
 		for (auto it = controller.map_udp_endpoint.begin();
 				it != controller.map_udp_endpoint.end(); it++) {
-	        //TODO
-			//auto header = "DATA " + std::to_string(mixed_datagrams_counter)
-	        //                + get_ack_win(from_pars(endpoint)) + "\n";
-			auto header = "DATA " + std::to_string(mixed_datagrams_counter) + "1" + "\n";
+			auto datagram = "DATA "
+					+ std::to_string(mixed_datagrams_counter) + " "
+	                + std::to_string(it->second->getExpectedAck()) + " "
+	                + std::to_string(it->second->getAllowedWin()) + "\n";
+			datagram += mixed_data;
 			auto endpoint = it->first;
-			socket_server_udp.send_to(boost::asio::buffer(header + mixed_data), endpoint);
+			LOG("Sending mixed data datagram: " + datagram);
+			socket_server_udp.send_to(boost::asio::buffer(datagram), endpoint);
 		}
-		//TODO push datagram to storage
+
+		store_mixed_data(mixed_datagrams_counter, mixed_data);
 		mixed_datagrams_counter++;
 	}
 	timer_sound_send.expires_from_now( boost::posix_time::millisec(controller.tx_interval));
@@ -58,9 +59,28 @@ void UdpServer::receiveDatagram() {
 				} else {
 					ERR(ec);
 				}
-
+				message_buffer.assign(0);
 				receiveDatagram();
 			});
+}
+
+// store mixed by server data needed to retransmissions
+void UdpServer::store_mixed_data(uint32_t datagram_nr, std::string mixed_data) {
+	mixed_data_storage.insert(mixed_data_storage.begin(),
+			std::make_pair(datagram_nr, mixed_data) );
+	if(mixed_data_storage.size() > controller.buffer_len) {
+		mixed_data_storage.erase(mixed_data_storage.end());
+	}
+}
+
+// get stored mixed data during retransmissions
+const std::string& UdpServer::get_stored_mixed_data(uint32_t datagram_nr) const {
+	auto it = mixed_data_storage.find(datagram_nr);
+	if( it == mixed_data_storage.end() ) {
+		ERR("Datagram nr " + std::to_string(datagram_nr) + " does not exists (anymore)");
+		throw new DatagramException();
+	}
+	return it->second;
 }
 
 void UdpServer::checkUdpConnections(const boost::system::error_code& error) {

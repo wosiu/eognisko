@@ -34,14 +34,22 @@ private:
 	udp::socket socket_server_udp;
     udp::endpoint new_client_endpoint;
     boost::array<char, 65535> message_buffer;
+    void store_mixed_data(uint32_t datagram_nr, std::string mixed_data);
+    const std::string& get_stored_mixed_data(uint32_t datagram_nr) const;
 	void sendMixed();
 	void receiveDatagram();
 	void processClientDatagram(size_t message_size);
 	void checkUdpConnections(const boost::system::error_code& error);
-	// mixerout_storage deque
+	std::map<int, std::string> mixed_data_storage;
 
 };
 
+class DatagramException: public std::exception
+{
+  virtual const char* what() const throw(){
+    return "Datagram does not exist.";
+  }
+};
 
 
 #endif /* UDP_SERVER_HPP_ */

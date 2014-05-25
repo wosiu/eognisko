@@ -5,8 +5,19 @@
 
 #include "ClientContext.hpp"
 
-ClientContext::ClientContext(uint32_t id, tcp::socket tcp_socket) : id(id), tcp_socket(std::move(tcp_socket)){
+ClientContext::ClientContext(uint32_t id, tcp::socket tcp_socket,
+		uint16_t fifo_size, uint16_t low_mark, uint16_t high_mark) :
+		id(id), tcp_socket(std::move(tcp_socket)), mix_fifo_maxsize(fifo_size), low_mark(
+				low_mark), high_mark(high_mark) {
 	last_min = last_max = 0;
+	mix.consumed = mix.len = 0;
+	expected_ack = 0;
+	mix.data = new char[mix_fifo_maxsize];
+	data_fifo_state = FILLING;
+}
+
+ClientContext::~ClientContext() {
+	//delete[] mix.data;
 }
 
 void ClientContext::correctlastUdpTime() {
@@ -14,7 +25,44 @@ void ClientContext::correctlastUdpTime() {
 }
 
 bool ClientContext::isActiveUDP() {
-	boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+	boost::posix_time::ptime now =
+			boost::posix_time::second_clock::local_time();
 	boost::posix_time::time_duration diff = now - last_udp_time;
 	return diff.total_seconds() <= ALLOWED_UDP_INTERVAL_S;
+}
+
+void ClientContext::addData(const char* data, size_t s) {
+	if ( s + mix.len > mix_fifo_maxsize ) {
+		ERR("Too big data to add to client FIFO. Probably bad window announced.");
+		s = std::min(s, mix_fifo_maxsize - mix.len);
+	}
+	memmove((char *) mix.data + mix.len, data, s);
+	mix.len += s;
+	last_max = std::max((size_t)last_max, mix.len);
+
+	if ( mix.len >= high_mark ) {
+		data_fifo_state = ACTIVE;
+	}
+}
+
+void ClientContext::resetDataStatus() {
+	last_min = last_max = mix.len;
+}
+
+void ClientContext::consumeData() {
+	if ( mix.consumed > mix.len ) {
+		ERR("Order to consume more than fifo lengh");
+		mix.consumed = mix.len;
+	}
+
+	uint16_t res = mix.len - mix.consumed;
+
+	memmove(mix.data, (char *)mix.data + mix.consumed, res);
+	mix.len = res;
+	last_min = std::min(last_min, res);
+
+	if ( mix.len <= low_mark ) {
+		data_fifo_state = FILLING;
+	}
+	mix.consumed = 0;
 }

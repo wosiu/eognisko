@@ -39,4 +39,3 @@ void mixer(struct mixer_input* inputs, size_t n, void* output_buf,
 		((int16_t *) output_buf)[i] = limited;
 	}
 }
-

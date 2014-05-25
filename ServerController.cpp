@@ -18,7 +18,7 @@ ServerController::ServerController() {
 std::shared_ptr<ClientContext> ServerController::addClient(
 		tcp::socket tcp_socket) {
 	std::shared_ptr<ClientContext> cc(
-			new ClientContext(next_id, std::move(tcp_socket)));
+			new ClientContext(next_id, std::move(tcp_socket), fifo_size, low_mark, high_mark));
 	clients.insert(std::make_pair(next_id, cc));
 	LOG("Client added, id: " + std::to_string(next_id));
 	next_id++;
@@ -40,10 +40,48 @@ bool ServerController::removeClient(int id) {
 	}
 	auto udp_endpoint = mit->second->getUdpEndpoint();
 	if (map_udp_endpoint.erase(udp_endpoint) != 1) {
-		LOG("UDP endpoint mapping does not exist for removing client. Continue..");
+		LOG(
+				"UDP endpoint mapping does not exist for removing client. Continue..");
 	}
 	clients.erase(mit);
 	LOG("Client removed, id: " + std::to_string(id));
 	return true;
 }
 
+std::string ServerController::mix() {
+	std::vector<std::shared_ptr<ClientContext>>active;
+
+	for (auto it = map_udp_endpoint.begin(); it != map_udp_endpoint.end();
+			it++) {
+		if (it->second->data_fifo_state
+				== ClientContext::DataFifoState::ACTIVE) {
+			active.push_back(it->second);
+		}
+
+	}
+	size_t n = active.size();
+	mixer_input *inputs = new mixer_input[n];
+
+	for ( size_t i = 0; i < n; i++ ) {
+		inputs[i] = active[i]->mix;
+	}
+
+	size_t *size = new size_t( 175 * tx_interval);
+	char *output = new char[*size];
+
+	mixer(inputs, n, output, size, tx_interval);
+
+	for ( size_t i = 0; i < active.size(); i++ ) {
+		active[i]->mix.consumed = inputs[i].consumed;
+		active[i]->mix.len = inputs[i].len;
+		active[i]->consumeData();
+	}
+
+	std::string result(output, output + *size);
+
+	delete output;
+	delete size;
+	delete inputs;
+
+	return result;
+}

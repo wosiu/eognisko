@@ -24,6 +24,4 @@ void mixer(
   unsigned long tx_interval_ms           // wartość zmiennej TX_INTERVAL
 );
 
-
-
 #endif /* MIXER_HPP_ */
