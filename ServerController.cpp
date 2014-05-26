@@ -15,6 +15,8 @@ ServerController::ServerController() {
 	tx_interval = 1000; // ms //TODO 5
 
 	is_tcp_server_on = is_udp_server_on = false;
+
+	memset(mixer_buffer, 0, sizeof(mixer_buffer));
 }
 
 std::shared_ptr<ClientContext> ServerController::addClient(
@@ -22,7 +24,7 @@ std::shared_ptr<ClientContext> ServerController::addClient(
 	std::shared_ptr<ClientContext> cc(
 			new ClientContext(next_id, std::move(tcp_socket), fifo_size, low_mark, high_mark));
 	clients.insert(std::make_pair(next_id, cc));
-	INFO("Client added, id: " + std::to_string(next_id));
+	INFO("Client added, id: " + _(next_id));
 	next_id++;
 	return cc;
 }
@@ -45,46 +47,51 @@ bool ServerController::removeClient(int id) {
 		INFO("UDP endpoint mapping does not exist for removing client. Continue..");
 	}
 	clients.erase(mit);
-	INFO("Client removed, id: " + std::to_string(id));
+	INFO("Client removed, id: " + _(id));
 	return true;
 }
 
 std::string ServerController::mix() {
-	std::vector<std::shared_ptr<ClientContext>>active;
+	//todo wyrabac vector, mixer input array statycznie wg controller.MAXCLIENTNO
+	//sprawdzic czy nie wychodzi za duzo
+	size_t n = 0;
+	size_t size = 0;
+
+	if ( map_udp_endpoint.empty() ) {
+		ERR("Co clients to make mix for them!");
+	}
 
 	for (auto it = map_udp_endpoint.begin(); it != map_udp_endpoint.end();
 			it++) {
+		DEB(it->second->data_fifo_state);
 		if (it->second->data_fifo_state
 				== ClientContext::DataFifoState::ACTIVE) {
-			active.push_back(it->second);
+			mixer_inputs_buffer[n] = it->second->mix;
+			active_ptr_buffer[n] = it->second;
+			n++;
 		}
-
 	}
-	size_t n = active.size();
-	mixer_input *inputs = new mixer_input[n];
+	LOG("Active buffors no: " + _(n));
+	DEB("before mixer: out size " + _(size) + ", mixer_buffer size " + _(strlen(mixer_buffer)));
+
+	mixer(mixer_inputs_buffer, n, mixer_buffer, &size, tx_interval);
+
+	DEB("after mixer: out size " + _(size) + ", mixer_buffer size " + _(strlen(mixer_buffer)));
+	if ( size > 516 ) {
+		WARN("Big mixer output size: " + _(size));
+	}
 
 	for ( size_t i = 0; i < n; i++ ) {
-		inputs[i] = active[i]->mix;
+		active_ptr_buffer[i]->mix.consumed = mixer_inputs_buffer[i].consumed;
+		active_ptr_buffer[i]->mix.len = mixer_inputs_buffer[i].len;
+		active_ptr_buffer[i]->consumeData();
 	}
 
-	size_t *size = new size_t( 175 * tx_interval);
-	char *output = new char[*size];
+	std::string result(mixer_buffer, mixer_buffer + size);
+	//std::fill(mixer_buffer, mixer_buffer + size + 1, 0);
+	memset(mixer_buffer, 0, size + 1);
 
-	mixer(inputs, n, output, size, tx_interval);
-
-	for ( size_t i = 0; i < active.size(); i++ ) {
-		active[i]->mix.consumed = inputs[i].consumed;
-		active[i]->mix.len = inputs[i].len;
-		active[i]->consumeData();
-	}
-
-	std::string result(output, output + *size);
-
-	delete output;
-	delete size;
-	delete inputs;
-
-	LOG("Result size: " + _(result.size()) + ", active clients: " + _(n) );
+	DEB("Result size: " + _(result.size()));
 	return result;
 }
 

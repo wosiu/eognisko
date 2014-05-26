@@ -7,6 +7,7 @@
 #define MIXER_HPP_
 
 #include <cstdlib>
+#include "commons.hpp"
 
 struct mixer_input {
   void* data;       // Wskaźnik na dane w FIFO

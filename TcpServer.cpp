@@ -18,7 +18,7 @@ TcpServer::TcpServer(boost::asio::io_service& io_service,
 
 void TcpServer::send_id_datagram(std::shared_ptr<ClientContext> cc) {
 	auto id = cc->getId();
-	auto datagram = "CLIENT " + std::to_string(id) + "\n";
+	auto datagram = "CLIENT " + _(id) + "\n";
 	write_or_remove(cc, datagram);
 }
 
@@ -26,19 +26,19 @@ void TcpServer::do_accept() {
 	acceptor_.async_accept(socket_, [this](boost::system::error_code ec)
 	{
 		if (!ec) {
-			// dodaje kleinta, zwraca referencje na kontekst z nim zwiazany
+			if ( controller.clients.size() > controller.MAX_CLIENT_NO ) {
+				socket_.close(ec);
+				if (!ec) {
+					WARN("Client disconnected by server - too much clients.");
+				} else {
+					ERR(ec);
+				}
+			} else {
+				// dodaje kleinta, zwraca referencje na kontekst z nim zwiazany
 				auto cc = controller.addClient(std::move(socket_));
 				send_id_datagram(cc);
-				INFO("Client accepted, id: " + std::to_string(cc->getId()) );
-				//TODO bad idea, beacouse of come and quit many times in small period of time
-				// then many send reports event would be queued in to short time
-				//remeber last report time and something..
-				//if it is a first client, start sending reports
-				/*if ( controller.clients.size() == 1 ) {
-				 INFO("First client. Start sending reports..");
-				 timer_.expires_from_now(boost::posix_time::seconds(REPORT_INTERVAL_S))
-				 timer_.async_wait(boost::bind(&TcpServer::send_reports_datagrams, this));
-				 }*/
+				INFO("Client accepted, id: " + _(cc->getId()) );
+			}
 		} else {
 			ERR(ec);
 		}
@@ -68,7 +68,7 @@ void TcpServer::send_reports_datagrams() {
 				continue;
 			}
 			report << boost::lexical_cast<std::string>(endpoint) << " FIFO: "
-					<< it->second->getFIFOSize() << "/" << fifo_size << "(min. "
+					<< it->second->getFIFOSize() << "/" << fifo_size << " (min. "
 					<< it->second->last_min << ", max. " << it->second->last_max
 					<< ")\n";
 			it++;
@@ -94,6 +94,7 @@ void TcpServer::send_reports_datagrams() {
 	//boost::bind(&TcpServer::send_reports_datagrams, this));
 }
 
+//TODO check if should not be copy instead reference, and then std::move while sending
 void TcpServer::write_or_remove(std::shared_ptr<ClientContext> cc,
 		const std::string& datagram) {
 	auto id = cc->getId();
@@ -103,7 +104,7 @@ void TcpServer::write_or_remove(std::shared_ptr<ClientContext> cc,
 					INFO(ec);
 					controller.removeClient(id);
 				} else {
-					LOG("Datagram sent to client, id: " + std::to_string(id) + ".");
+					LOG("Datagram sent to client, id: " + _(id) + ".");
 					// + ((datagram.size() < 100) ? datagram : (std::string(datagram, 100)) + "...")
 				}
 			});

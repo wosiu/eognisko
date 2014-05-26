@@ -19,18 +19,22 @@ UdpServer::UdpServer(boost::asio::io_service& io_service,
 	// start sending data to clients
 	timer_sound_send.async_wait(boost::bind(&UdpServer::sendMixed, this));
 	// start checking UDP clients' connections
-	timer_udp_check.async_wait(
+	// TODO uncomment
+	/*timer_udp_check.async_wait(
 			boost::bind(&UdpServer::checkUdpConnections, this,
 					boost::asio::placeholders::error));
+	*/
 }
 
 // run mixing and sending datagram DATA with mixed data to clients
 void UdpServer::sendMixed() {
-	if (controller.clients.empty()) {
-		LOG("No clients to send sound.");
+	if (controller.map_udp_endpoint.empty()) {
+		LOG("No ready clients to send mixed data.");
 	} else {
-		LOG("Send sound");
+		LOG("Prepare and send mixed data.");
 		auto mixed_data = controller.mix();
+		DEB(mixed_data);
+		LOG("Mixed size: " + _(mixed_data.size()));
 
 		int nr = mixed_datagrams_counter, ack, win;
 
@@ -45,7 +49,7 @@ void UdpServer::sendMixed() {
 
 			header += mixed_data;
 			auto endpoint = it->first;
-			socket_server_udp.send_to(boost::asio::buffer(header), endpoint);
+			socket_server_udp.send_to(boost::asio::buffer(std::move(header)), endpoint);
 		}
 
 		store_mixed_data(mixed_datagrams_counter, mixed_data);
@@ -77,7 +81,9 @@ void UdpServer::store_mixed_data(uint32_t datagram_nr, std::string mixed_data) {
 	mixed_data_storage.insert(mixed_data_storage.begin(),
 			std::make_pair(datagram_nr, mixed_data));
 	if (mixed_data_storage.size() > controller.buffer_len) {
-		mixed_data_storage.erase(mixed_data_storage.end());
+		auto it = mixed_data_storage.end();
+		it--;
+		mixed_data_storage.erase(it);
 	}
 }
 
@@ -87,7 +93,7 @@ const std::string& UdpServer::get_stored_mixed_data(
 	auto it = mixed_data_storage.find(datagram_nr);
 	if (it == mixed_data_storage.end()) {
 		ERR(
-				"Datagram nr " + std::to_string(datagram_nr)
+				"Datagram nr " + _(datagram_nr)
 						+ " does not exists (anymore)");
 		throw new DatagramException();
 	}
@@ -122,16 +128,16 @@ void UdpServer::checkUdpConnections(const boost::system::error_code& error) {
 // Parsing and processing user datagram. Using global message_buffer and new_client_endpoint
 void UdpServer::processClientDatagram(size_t message_size) {
 
-	LOG("Parsing datagram, endpoint: " + endpointToString(incoming_client_endpoint) + ", size: " + std::to_string(message_size));
+	LOG("Parsing datagram, endpoint: " + endpointToString(incoming_client_endpoint) + ", size: " + _(message_size));
 	//LOG("dupa" + incoming_client_endpoint.data()->sa_data );
 	char* datagram = message_buffer.c_array();
 
 	int nr, client_id;
-	std::string data;
 
-	if (parser.matches_upload(datagram, nr, data)) {
-		int data_len = data.length();
-		LOG("UPLOAD nr " + std::to_string(nr) + ", data size: " + std::to_string(data_len));
+	if (parser.matches_upload(datagram, nr, databuffer)) {
+
+		int data_len = strlen(databuffer);
+		LOG("UPLOAD nr " + _(nr) + ", data size: " + _(data_len));
 
 		auto uit = controller.map_udp_endpoint.find(incoming_client_endpoint);
 		if( uit == controller.map_udp_endpoint.end() ) {
@@ -141,23 +147,25 @@ void UdpServer::processClientDatagram(size_t message_size) {
 		auto client = uit->second;
 
 		if( nr != client->getExpectedAck() ) {
-			WARN("Wrong datagram nr: " + std::to_string(nr) + ", expected:" + std::to_string(client->getExpectedAck()) + ". Abort.");
+			WARN("Wrong datagram nr: " + _(nr) + ", expected:" + _(client->getExpectedAck()) + ". Abort.");
 			return;
 		}
 
 		if ( message_size > client->getAllowedWin() ) {
-			WARN("Too big message size: " + std::to_string(message_size) + ", allowed window:" + std::to_string(client->getAllowedWin()) + ". Removing client.");
+			WARN("Too big message size: " + _(message_size) + ", allowed window:" + _(client->getAllowedWin()) + ". Removing client.");
 			controller.removeClient(client->getId());
 			return;
 		}
 
-		client->addData(datagram, message_size); //also ack++
-		//sent ACK
-		std::string datagram = "ACK " + _(client->getExpectedAck()) + " " + _(client->getAllowedWin()) + "\n";
+		client->addData(databuffer, data_len); //also ack++
+		//send ACK
+		auto datagram = "ACK " + _(client->getExpectedAck()) + " " + _(client->getAllowedWin()) + "\n";
 		LOG("ACK send :" + datagram);
-		socket_server_udp.send_to(boost::asio::buffer(datagram), incoming_client_endpoint);
+		socket_server_udp.send_to(boost::asio::buffer(std::move(datagram)), incoming_client_endpoint);
+
 
 	} else if (parser.matches_keepalive(datagram)) {
+
 		LOG("KEEPALIVE");
 		auto uit = controller.map_udp_endpoint.find(incoming_client_endpoint);
 		if (uit == controller.map_udp_endpoint.end()) {
@@ -165,12 +173,17 @@ void UdpServer::processClientDatagram(size_t message_size) {
 			return;
 		}
 		uit->second->correctlastUdpTime();
+
+
 	} else if (parser.matches_retransmit(datagram, nr)) {
+
 		LOG("RETRANSMITE TODO");
 		//TODO
 
+
 	} else if (parser.matches_client_id(datagram, client_id)) {
-		LOG("CLIENT " + std::to_string(client_id));
+
+		LOG("CLIENT " + _(client_id));
 		// `CLIENT` datagram means, that tcp connection must be already created
 		auto tit = controller.clients.find(client_id);
 		if (tit == controller.clients.end()) {
@@ -201,5 +214,10 @@ void UdpServer::processClientDatagram(size_t message_size) {
 
 		controller.map_udp_endpoint.insert(make_pair(incoming_client_endpoint, client_ptr));
 		client_ptr->setUdpEndpoint(std::move(incoming_client_endpoint));
+
+
+	} else {
+
+		WARN("Incorrect datagram schema.");
 	}
 }

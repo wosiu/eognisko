@@ -14,6 +14,7 @@
 #define IS_WARN 1
 #define IS_INFO 1
 #define IS_LOG 1
+#define IS_DEB 1
 
 // Problem with connection or something wrong happen in code
 #define ERR(ec) if(IS_ERR){ std::cerr << "[Error] " << __FILE__ << ", " << __FUNCTION__ << ", at " << __LINE__ <<  ": " << ec << std::endl; }
@@ -23,6 +24,9 @@
 #define INFO(log) if(IS_INFO){ std::cerr << "[Info] " << __FILE__ << ", " << __FUNCTION__ << ", at " << __LINE__ <<  ": " << log << std::endl; }
 // Others events with the lowest priority, which produce logs very fast, e.g. datagrams debug
 #define LOG(log) if(IS_LOG){ std::cerr << "[Log] " << __FILE__ << ", " << __FUNCTION__ << ", at " << __LINE__ <<  ": " << log << std::endl; }
+// Debug
+#define DEB(var) if(IS_DEB){ std::cerr << "[Debug] " << __FILE__ << ", " << __FUNCTION__ << ", at " << __LINE__ <<  ": " << #var << ": " << var << std::endl; }
+
 
 #define _(var) std::to_string(var)
 
