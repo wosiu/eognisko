@@ -22,7 +22,7 @@ public:
 	ServerController();
     uint16_t port, fifo_size, low_mark, high_mark, buffer_len, tx_interval;
 	const static uint16_t MAX_CLIENT_NO = 1000;
-    std::map<int, std::shared_ptr<ClientContext>> clients; //key: id
+    std::map<size_t, std::shared_ptr<ClientContext>> clients; //key: id
 	typedef std::map<udp::endpoint, std::shared_ptr<ClientContext> > map_udp_endpoint_t;
 	map_udp_endpoint_t map_udp_endpoint;
 	std::shared_ptr<ClientContext> addClient(tcp::socket tcp_socket);

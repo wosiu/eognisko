@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 			value<uint16_t>(&controller.low_mark)->default_value(controller.low_mark),
 			"low watermark")(",H", value<uint16_t>(), "high watermark")(",X",
 			value<uint16_t>(&controller.buffer_len)->default_value(controller.buffer_len),
-			"buffer length")(",i",
+			"mixed data buffer length - retransmission limit")(",i",
 			value<uint16_t>(&controller.tx_interval)->default_value(controller.tx_interval),
 			"tx interval");
 

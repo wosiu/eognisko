@@ -20,7 +20,6 @@ using boost::asio::ip::udp;
 class ClientContext {
 public:
 	ClientContext(uint32_t id, tcp::socket tcp_socket, uint16_t fifo_size, uint16_t low_mark, uint16_t high_mark);
-	~ClientContext();
 	uint32_t getId() {
 		return id;
 	}
@@ -54,6 +53,8 @@ public:
 
 	void setUdpEndpoint(const udp::endpoint& udpEndpoint) {
 		udp_endpoint = udpEndpoint;
+		// Client may need some more time in the beginning before send `KEEPALIVE`
+		last_udp_time = boost::posix_time::microsec_clock::local_time() + boost::posix_time::milliseconds(2000);
 	}
 
 	void addData(const char* data, size_t s);
@@ -68,7 +69,7 @@ private:
 	tcp::socket tcp_socket;
 	udp::endpoint udp_endpoint;
 	boost::posix_time::ptime last_udp_time;
-	const static uint16_t ALLOWED_UDP_INTERVAL_S = 1;
+	const static uint16_t ALLOWED_UDP_INTERVAL_MS = 1000;
 	// must be equal to next UPLOAD -> nr <- datagram
 	uint32_t expected_ack;
 	//FIFO

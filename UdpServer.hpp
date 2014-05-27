@@ -35,7 +35,8 @@ private:
 	udp::socket socket_server_udp;
     udp::endpoint incoming_client_endpoint;
     boost::array<char, 65535> message_buffer;
-	char databuffer[65535];
+    //char message_buffer[65535];
+    char databuffer[65535];
     void store_mixed_data(uint32_t datagram_nr, std::string mixed_data);
     const std::string& get_stored_mixed_data(uint32_t datagram_nr) const;
 	void sendMixed();

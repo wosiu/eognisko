@@ -37,7 +37,7 @@ void TcpServer::do_accept() {
 				// dodaje kleinta, zwraca referencje na kontekst z nim zwiazany
 				auto cc = controller.addClient(std::move(socket_));
 				send_id_datagram(cc);
-				INFO("Client accepted, id: " + _(cc->getId()) );
+				INFO("Client joined, sending id: " + _(cc->getId()) );
 			}
 		} else {
 			ERR(ec);

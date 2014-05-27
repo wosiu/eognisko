@@ -14,11 +14,6 @@ ClientContext::ClientContext(uint32_t id, tcp::socket tcp_socket,
 	expected_ack = 0;
 	mix.data = new char[mix_fifo_maxsize];
 	data_fifo_state = FILLING;
-	//udp_endpoint = nullptr;
-}
-
-ClientContext::~ClientContext() {
-	//delete[] mix.data;
 }
 
 void ClientContext::correctlastUdpTime() {
@@ -27,9 +22,9 @@ void ClientContext::correctlastUdpTime() {
 
 bool ClientContext::isActiveUDP() {
 	boost::posix_time::ptime now =
-			boost::posix_time::second_clock::local_time();
+			boost::posix_time::microsec_clock::local_time();
 	boost::posix_time::time_duration diff = now - last_udp_time;
-	return diff.total_seconds() <= ALLOWED_UDP_INTERVAL_S;
+	return diff.total_milliseconds() <= ALLOWED_UDP_INTERVAL_MS;
 }
 
 void ClientContext::addData(const char* data, size_t s) {

@@ -78,7 +78,8 @@ bool DatagramParser::matches_data(const char* input_string, const size_t datagra
 		ack = std::strtoul(groups[2].first, NULL, 0);
 		win = std::strtoul(groups[3].first, NULL, 0);
 		size_t header_size = end - input_string;
-		memcpy(data, end, datagram_size - header_size );
+		data_size = datagram_size - header_size;
+		memcpy(data, end, data_size );
 		return true;
 	}
 	return false;

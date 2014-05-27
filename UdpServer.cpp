@@ -130,8 +130,6 @@ void UdpServer::processClientDatagram(size_t message_size) {
 	LOG("Parsing datagram, endpoint: " + endpointToString(incoming_client_endpoint) + ", size: " + _(message_size) + ", buffer size: " + _(message_buffer.size()) );
 	//LOG("dupa" + incoming_client_endpoint.data()->sa_data );
 	char* datagram = message_buffer.c_array();
-	DEB(strlen(datagram));
-	DEB(datagram);
 
 	size_t nr, client_id, data_len;
 
@@ -177,7 +175,7 @@ void UdpServer::processClientDatagram(size_t message_size) {
 
 	} else if (parser.matches_retransmit(datagram, nr)) {
 
-		LOG("RETRANSMITE nr >= " + _(nr));
+		INFO("RETRANSMITE nr >= " + _(nr));
 		auto uit = controller.map_udp_endpoint.find(incoming_client_endpoint);
 		if ( uit == controller.map_udp_endpoint.end() ) {
 			WARN("UDP endpoint mapping exists. Aborting.");
@@ -229,9 +227,9 @@ void UdpServer::processClientDatagram(size_t message_size) {
 			return;
 		}*/
 
+		INFO("Client id: " + _(client_id) + " accepted, UDP endpoint: " + endpointToString(incoming_client_endpoint) + ". Mapping created.");
 		controller.map_udp_endpoint.insert(make_pair(incoming_client_endpoint, client_ptr));
 		client_ptr->setUdpEndpoint(std::move(incoming_client_endpoint));
-
 
 	} else {
 

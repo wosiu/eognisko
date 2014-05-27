@@ -23,7 +23,7 @@ std::shared_ptr<ClientContext> ServerController::addClient(
 	std::shared_ptr<ClientContext> cc(
 			new ClientContext(next_id, std::move(tcp_socket), fifo_size, low_mark, high_mark));
 	clients.insert(std::make_pair(next_id, cc));
-	INFO("Client added, id: " + _(next_id));
+	INFO("New client, id: " + _(next_id));
 	next_id++;
 	return cc;
 }
