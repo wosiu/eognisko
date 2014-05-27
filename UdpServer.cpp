@@ -33,7 +33,6 @@ void UdpServer::sendMixed() {
 	} else {
 		LOG("Prepare and send mixed data.");
 		auto mixed_data = controller.mix();
-		DEB(mixed_data);
 		LOG("Mixed size: " + _(mixed_data.size()));
 
 		int nr = mixed_datagrams_counter, ack, win;
@@ -132,9 +131,9 @@ void UdpServer::processClientDatagram(size_t message_size) {
 	//LOG("dupa" + incoming_client_endpoint.data()->sa_data );
 	char* datagram = message_buffer.c_array();
 
-	int nr, client_id;
+	size_t nr, client_id;
 
-	if (parser.matches_upload(datagram, nr, databuffer)) {
+	if (parser.matches_upload(datagram, message_size, nr, databuffer)) {
 
 		int data_len = strlen(databuffer);
 		LOG("UPLOAD nr " + _(nr) + ", data size: " + _(data_len));

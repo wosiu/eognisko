@@ -63,12 +63,12 @@ std::string ServerController::mix() {
 
 	for (auto it = map_udp_endpoint.begin(); it != map_udp_endpoint.end();
 			it++) {
-		DEB(it->second->data_fifo_state);
 		if (it->second->data_fifo_state
 				== ClientContext::DataFifoState::ACTIVE) {
 			mixer_inputs_buffer[n] = it->second->mix;
 			active_ptr_buffer[n] = it->second;
 			n++;
+			//DEB( (char*)active_ptr_buffer[n]->mix.data );
 		}
 	}
 	LOG("Active buffors no: " + _(n));

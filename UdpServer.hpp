@@ -44,8 +44,6 @@ private:
 	void checkUdpConnections(const boost::system::error_code& error);
 	std::map<int, std::string> mixed_data_storage;
 	DatagramParser parser;
-
-
 };
 
 class DatagramException: public std::exception
