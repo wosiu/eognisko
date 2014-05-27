@@ -56,8 +56,9 @@ void UdpServer::sendMixed() {
 		store_mixed_data(mixed_datagrams_counter, mixed_data);
 		mixed_datagrams_counter++;
 	}
-	timer_sound_send.expires_from_now(
-			boost::posix_time::millisec(controller.tx_interval));
+	timer_sound_send.expires_at(timer_sound_send.expires_at() + boost::posix_time::millisec(controller.tx_interval));
+	//timer_sound_send.expires_from_now(
+	//		boost::posix_time::millisec(controller.tx_interval));
 	timer_sound_send.async_wait(boost::bind(&UdpServer::sendMixed, this));
 }
 
