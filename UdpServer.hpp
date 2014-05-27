@@ -42,7 +42,7 @@ private:
 	void receiveDatagram();
 	void processClientDatagram(size_t message_size);
 	void checkUdpConnections(const boost::system::error_code& error);
-	std::map<int, std::string> mixed_data_storage;
+	std::map<size_t, std::string> mixed_data_storage;
 	DatagramParser parser;
 };
 

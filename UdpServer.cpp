@@ -26,6 +26,8 @@ UdpServer::UdpServer(boost::asio::io_service& io_service,
 	*/
 }
 
+
+
 // run mixing and sending datagram DATA with mixed data to clients
 void UdpServer::sendMixed() {
 	if (controller.map_udp_endpoint.empty()) {
@@ -77,11 +79,10 @@ void UdpServer::receiveDatagram() {
 
 // store mixed by server data needed to retransmissions
 void UdpServer::store_mixed_data(uint32_t datagram_nr, std::string mixed_data) {
-	mixed_data_storage.insert(mixed_data_storage.begin(),
+	mixed_data_storage.insert(mixed_data_storage.end(),
 			std::make_pair(datagram_nr, mixed_data));
 	if (mixed_data_storage.size() > controller.buffer_len) {
-		auto it = mixed_data_storage.end();
-		it--;
+		auto it = mixed_data_storage.begin();
 		mixed_data_storage.erase(it);
 	}
 }
@@ -91,9 +92,7 @@ const std::string& UdpServer::get_stored_mixed_data(
 		uint32_t datagram_nr) const {
 	auto it = mixed_data_storage.find(datagram_nr);
 	if (it == mixed_data_storage.end()) {
-		ERR(
-				"Datagram nr " + _(datagram_nr)
-						+ " does not exists (anymore)");
+		ERR("Datagram nr " + _(datagram_nr)+ " does not exists (anymore)");
 		throw new DatagramException();
 	}
 	return it->second;
@@ -176,9 +175,26 @@ void UdpServer::processClientDatagram(size_t message_size) {
 
 	} else if (parser.matches_retransmit(datagram, nr)) {
 
-		LOG("RETRANSMITE TODO");
-		//TODO
+		LOG("RETRANSMITE nr >= " + _(nr));
+		auto uit = controller.map_udp_endpoint.find(incoming_client_endpoint);
+		if ( uit == controller.map_udp_endpoint.end() ) {
+			WARN("UDP endpoint mapping exists. Aborting.");
+			return;
+		}
 
+		auto dit = mixed_data_storage.find(nr);
+		if ( dit == mixed_data_storage.end() ) {
+			WARN("Client ask to retransmit too old datagram. Aborting");
+			return;
+		}
+
+		auto ack_win_str = " " + _(uit->second->getExpectedAck()) + " " + _(uit->second->getAllowedWin()) + "\n";
+
+		while ( dit != mixed_data_storage.end() ) {
+			auto to_send = "DATA " + _(dit->first) + ack_win_str + dit->second;
+			socket_server_udp.send_to(boost::asio::buffer(std::move(to_send)), incoming_client_endpoint);
+			dit++;
+		}
 
 	} else if (parser.matches_client_id(datagram, client_id)) {
 
