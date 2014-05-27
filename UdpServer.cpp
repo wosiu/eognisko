@@ -19,11 +19,11 @@ UdpServer::UdpServer(boost::asio::io_service& io_service,
 	// start sending data to clients
 	timer_sound_send.async_wait(boost::bind(&UdpServer::sendMixed, this));
 	// start checking UDP clients' connections
-	// TODO uncomment
-	/*timer_udp_check.async_wait(
-			boost::bind(&UdpServer::checkUdpConnections, this,
-					boost::asio::placeholders::error));
-	*/
+	if ( !IS_DEB ) {
+		timer_udp_check.async_wait(
+				boost::bind(&UdpServer::checkUdpConnections, this,
+						boost::asio::placeholders::error));
+	}
 }
 
 
@@ -126,15 +126,16 @@ void UdpServer::checkUdpConnections(const boost::system::error_code& error) {
 // Parsing and processing user datagram. Using global message_buffer and new_client_endpoint
 void UdpServer::processClientDatagram(size_t message_size) {
 
-	LOG("Parsing datagram, endpoint: " + endpointToString(incoming_client_endpoint) + ", size: " + _(message_size));
+	LOG("Parsing datagram, endpoint: " + endpointToString(incoming_client_endpoint) + ", size: " + _(message_size) + ", buffer size: " + _(message_buffer.size()) );
 	//LOG("dupa" + incoming_client_endpoint.data()->sa_data );
 	char* datagram = message_buffer.c_array();
+	DEB(strlen(datagram));
+	DEB(datagram);
 
-	size_t nr, client_id;
+	size_t nr, client_id, data_len;
 
-	if (parser.matches_upload(datagram, message_size, nr, databuffer)) {
+	if (parser.matches_upload(datagram, message_size, nr, databuffer, data_len)) {
 
-		int data_len = strlen(databuffer);
 		LOG("UPLOAD nr " + _(nr) + ", data size: " + _(data_len));
 
 		auto uit = controller.map_udp_endpoint.find(incoming_client_endpoint);
@@ -149,7 +150,7 @@ void UdpServer::processClientDatagram(size_t message_size) {
 			return;
 		}
 
-		if ( message_size > client->getAllowedWin() ) {
+		if ( data_len > client->getAllowedWin() ) {
 			WARN("Too big message size: " + _(message_size) + ", allowed window:" + _(client->getAllowedWin()) + ". Removing client.");
 			controller.removeClient(client->getId());
 			return;

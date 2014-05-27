@@ -12,8 +12,7 @@ ServerController::ServerController() {
 	low_mark = 0;
 	high_mark = fifo_size;
 	buffer_len = 10;
-	tx_interval = 1000; // ms //TODO 5
-
+	tx_interval = (IS_DEB) ? 1000 : 5; // ms
 	is_tcp_server_on = is_udp_server_on = false;
 
 	memset(mixer_buffer, 0, sizeof(mixer_buffer));
@@ -52,8 +51,6 @@ bool ServerController::removeClient(int id) {
 }
 
 std::string ServerController::mix() {
-	//todo wyrabac vector, mixer input array statycznie wg controller.MAXCLIENTNO
-	//sprawdzic czy nie wychodzi za duzo
 	size_t n = 0;
 	size_t size = 0;
 
@@ -68,7 +65,6 @@ std::string ServerController::mix() {
 			mixer_inputs_buffer[n] = it->second->mix;
 			active_ptr_buffer[n] = it->second;
 			n++;
-			//DEB( (char*)active_ptr_buffer[n]->mix.data );
 		}
 	}
 	LOG("Active buffors no: " + _(n));
@@ -77,9 +73,9 @@ std::string ServerController::mix() {
 	mixer(mixer_inputs_buffer, n, mixer_buffer, &size, tx_interval);
 
 	DEB("after mixer: out size " + _(size) + ", mixer_buffer size " + _(strlen(mixer_buffer)));
-	if ( size > 516 ) {
+	/*if ( size > 516 ) {
 		WARN("Big mixer output size: " + _(size));
-	}
+	}*/
 
 	for ( size_t i = 0; i < n; i++ ) {
 		active_ptr_buffer[i]->mix.consumed = mixer_inputs_buffer[i].consumed;

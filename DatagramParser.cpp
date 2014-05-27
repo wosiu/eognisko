@@ -48,7 +48,7 @@ bool DatagramParser::matches_keepalive(const char* input_string) {
 	return false;
 }
 
-bool DatagramParser::matches_upload(const char* input_string, const size_t datagram_size, size_t& nr, char* data) {
+bool DatagramParser::matches_upload(const char* input_string, const size_t datagram_size, size_t& nr, char* data, size_t& data_size) {
 	boost::cmatch groups;
 	const char* end = (const char*) memchr(input_string, '\n', datagram_size);
 	if ( end == NULL ) {
@@ -58,14 +58,15 @@ bool DatagramParser::matches_upload(const char* input_string, const size_t datag
 	if (boost::regex_match(input_string, end, groups, regexp_upload)) {
 		nr = std::strtoul(groups[1].first, NULL, 0);
 		size_t header_size = end - input_string;
-		memcpy(data, end, datagram_size - header_size );
+		data_size = datagram_size - header_size;
+		memcpy(data, end, data_size);
 		return true;
 	}
 	return false;
 }
 
 bool DatagramParser::matches_data(const char* input_string, const size_t datagram_size, size_t& nr, size_t& ack,
-		size_t& win, char* data) {
+		size_t& win, char* data, size_t& data_size) {
 	boost::cmatch groups;
 	const char* end = (const char*) memchr(input_string, '\n', datagram_size);
 	if ( end == NULL ) {

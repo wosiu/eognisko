@@ -50,8 +50,9 @@ int main(int argc, char **argv) {
 	else
 		controller.high_mark = controller.fifo_size;
 
-	//TODO
-	controller.high_mark = 4;
+	if (IS_DEB) {
+		controller.high_mark = 4;
+	}
 
 	//Praca
 	TcpServer tcp_server(io_service, controller);

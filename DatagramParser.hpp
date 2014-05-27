@@ -21,8 +21,8 @@ public:
 	bool matches_ack(const char*, size_t&, size_t&);
 	bool matches_retransmit(const char*, size_t&);
 	bool matches_keepalive(const char*);
-	bool matches_upload(const char*, size_t datagram_size, size_t&, char*);
-	bool matches_data(const char*, size_t datagram_size, size_t&, size_t&, size_t&, char*);
+	bool matches_upload(const char*, size_t datagram_size, size_t&, char*, size_t&);
+	bool matches_data(const char*, size_t datagram_size, size_t&, size_t&, size_t&, char*, size_t&);
 };
 
 #endif /* PARSER_HPP_ */

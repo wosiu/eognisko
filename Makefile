@@ -1,6 +1,7 @@
 all : tmp server
 
-CXXFLAGS = -ggdb --std=c++11 -lboost_system -lpthread -lboost_program_options -lboost_regex
+#CXXFLAGS = -ggdb -Wall --std=c++11 -lboost_system -lpthread -lboost_program_options -lboost_regex
+CXXFLAGS = -O2 --std=c++11 -lboost_system -lpthread -lboost_program_options -lboost_regex
 
 tmp :
 	g++ tmp.cpp -o tmp $(CXXFLAGS) 

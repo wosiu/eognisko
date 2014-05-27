@@ -79,6 +79,7 @@ void TcpServer::send_reports_datagrams() {
 
 		for (auto it = controller.clients.begin();
 				it != controller.clients.end(); it++) {
+			it->second->resetDataStatus();
 			write_or_remove(it->second, rendered);
 		}
 	}

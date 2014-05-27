@@ -30,7 +30,7 @@ public:
 private:
 	uint32_t mixed_datagrams_counter;
 	boost::asio::deadline_timer timer_sound_send, timer_udp_check;
-	const static uint16_t UDP_CHECK_INTERVAL_S = 15; //TODO
+	const static uint16_t UDP_CHECK_INTERVAL_S = 1; //unused in debug mode
 	ServerController& controller;
 	udp::socket socket_server_udp;
     udp::endpoint incoming_client_endpoint;

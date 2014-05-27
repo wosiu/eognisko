@@ -10,9 +10,7 @@
 void mixer(struct mixer_input* inputs, size_t n, void* output_buf,
 		size_t* output_size, unsigned long tx_interval_ms) {
 
-	// TODO uncomment
-	//*output_size = 176.4f * tx_interval_ms;
-	*output_size = 100;
+	*output_size = (IS_DEB) ? 100 : (176.4f * tx_interval_ms);
 	*output_size -= *output_size % 2;
 
 	for (size_t i = 0; i < n; ++i) {

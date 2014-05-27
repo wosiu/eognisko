@@ -13,8 +13,8 @@
 #define IS_ERR 1
 #define IS_WARN 1
 #define IS_INFO 1
-#define IS_LOG 1
-#define IS_DEB 1
+#define IS_LOG 0
+#define IS_DEB 0
 
 // Problem with connection or something wrong happen in code
 #define ERR(ec) if(IS_ERR){ std::cerr << "[Error] " << __FILE__ << ", " << __FUNCTION__ << ", at " << __LINE__ <<  ": " << ec << std::endl; }

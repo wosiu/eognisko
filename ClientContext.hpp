@@ -43,10 +43,6 @@ public:
 
 	uint16_t last_min, last_max, mix_fifo_maxsize, low_mark, high_mark;
 
-	//TODO in client:
-	//uint32_t expected_data_nr; //init with -1
-	//uint32_t expected_max_window;
-
 	enum DataFifoState {FILLING, ACTIVE} data_fifo_state;
 
 	void correctlastUdpTime();
