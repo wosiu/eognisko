@@ -8,7 +8,6 @@
 Client::Client(boost::asio::io_service& io_service, ClientController& _controller) :
 		controller(_controller), tcp_socket(io_service),
 		udp_socket(io_service, ip::udp::endpoint(ip::udp::v4(), 0)),
-		input_buffer(MAX_UP_SIZE),
 		stdin(io_service, dup(STDIN_FILENO)), stdout(io_service, dup(STDOUT_FILENO)),
 		keepalive_timer(io_service), activity_timer(io_service) {
 
@@ -60,8 +59,9 @@ void Client::receiveID() {
 
 
 void Client::cylicSendKeepalive() {
-	sendDatagram("KEEPALIVE\n");
 	LOG("KEEPALIVE datagram processing.");
+
+	sendDatagram("KEEPALIVE\n");
 
 	keepalive_timer.expires_from_now(boost::posix_time::milliseconds(KEEPALIVE_INTERVAL_MS));
 	keepalive_timer.async_wait(
@@ -76,6 +76,7 @@ void Client::cylicSendKeepalive() {
 
 void Client::cylicCheckActivity() {
 	LOG("Activity check: " + _(is_active));
+
 	if (!is_active && !IS_DEB) {
 		WARN("No activity was observed. Stopping.")
 		throw TroublesomeConnection();
@@ -116,6 +117,7 @@ void Client::sendDatagram(std::string msg) {
 
 void Client::cyclicDatagramSend(const boost::system::error_code& ec,
 		size_t datagram_size) {
+
 	if (!ec) {
 		LOG("Sending data via UDP");
 		pending_datagrams.pop_front();
@@ -133,16 +135,18 @@ void Client::cyclicDatagramSend(const boost::system::error_code& ec,
 
 
 void Client::readStdInput() {
+
 	if (available_win == 0) {
 		LOG("No window available. Abort reading from stdin.");
 		return;
 	}
+
 	LOG("Reading from stdin.");
 	reading = true;
 	boost::asio::async_read(
 			stdin,
-			boost::asio::buffer(input_buffer,
-					std::min(input_buffer.size(), available_win)),
+			boost::asio::buffer(stdin_buffer,
+					std::min(stdin_buffer.size(), available_win)),
 			std::bind(&Client::sendStdinInput, this, std::placeholders::_1,
 					std::placeholders::_2));
 }
@@ -150,9 +154,10 @@ void Client::readStdInput() {
 
 void Client::sendStdinInput(const boost::system::error_code &ec,
 		size_t bytes_transferred) {
+
 	if (!ec) {
 		LOG("Send stdin");
-		auto data = input_buffer.data();
+		auto data = stdin_buffer.data();
 		auto datagram = "UPLOAD " + _(upload_num) + "\n" + std::string (data, data + bytes_transferred);
 		sendDatagram(datagram);
 		upload_num++;
@@ -180,14 +185,14 @@ void Client::processDatagram(const boost::system::error_code& ec,
 	LOG("Datagram via UDP read");
 	size_t ack, nr, new_win, data_size;
 
-	if ( ec ) {
+	if (ec) {
 		ERR(ec);
 
-	//TODO to mala function
-	} else if( udp_recv_endpoint != udp_server_endpoint) {
-		WARN("Data received from an unknown server: " + endpointToString(udp_recv_endpoint) );
+		//TODO to mala function
+	} else if (udp_recv_endpoint != udp_server_endpoint) {
+		WARN("Data received from an unknown server: " + endpointToString(udp_recv_endpoint));
 
-	} else if ( parser.matches_ack(buffer_boostarray.data(), ack, new_win) ) {
+	} else if (parser.matches_ack(buffer_boostarray.data(), ack, new_win)) {
 		LOG("ACK: ack: " + _(ack) + " win: " + _(new_win));
 		is_active = true;
 		if (ack == upload_num) {
@@ -198,40 +203,44 @@ void Client::processDatagram(const boost::system::error_code& ec,
 			}
 		}
 
-	} else if ( parser.matches_data(buffer_boostarray.data(), datagram_size, nr,  ack, new_win, buffer_chararray, data_size) ) {
-			LOG("Data (nr, ack, win) " + _(nr) + " " + _(ack) + " " + _(new_win) );
-			if ( nr == expected_data_num || expected_data_num == 0
-					|| nr - controller.retransmit_limit > expected_data_num) {
-				data_count++;
-				if (expected_data_num == 0 || ack == upload_num) {
-					data_count = 0;
-					available_win = new_win;
-					if (!reading) {
-						readStdInput();
-					}
+	} else if (parser.matches_data(buffer_boostarray.data(), datagram_size, nr,
+			ack, new_win, buffer_chararray, data_size)) {
+		LOG("Data (nr, ack, win) " + _(nr) + " " + _(ack) + " " + _(new_win));
+		if (nr == expected_data_num || expected_data_num == 0
+				|| nr - controller.retransmit_limit > expected_data_num) {
+			data_count++;
+			if (expected_data_num == 0 || ack == upload_num) {
+				data_count = 0;
+				available_win = new_win;
+				if (!reading) {
+					readStdInput();
 				}
-				try {
-					LOG("Write mixed data to stdout");
-					boost::asio::write(stdout, boost::asio::buffer(buffer_chararray, data_size));
-				} catch (std::exception &e) {
-					ERR(e.what());
-				}
-				expected_data_num = nr + 1;
-
-			} else if (nr > expected_data_num
-					&& nr - controller.retransmit_limit <= expected_data_num
-					&& nr > max_seen_data) {
-
-				auto datagram = "RETRANSMIT " + _(expected_data_num) + "\n";
-				sendDatagram(datagram);
 			}
-			if (data_count == 2) {
-				sendDatagram(last_upload);
+			try {
+				LOG("Write mixed data to stdout");
+				boost::asio::write(stdout,
+						boost::asio::buffer(buffer_chararray, data_size));
+			} catch (std::exception &e) {
+				ERR(e.what());
 			}
-			max_seen_data = std::max(max_seen_data, nr);
-		} else {
-			WARN("Wrong datagram schema.");
+			expected_data_num = nr + 1;
+
+		} else if (nr > expected_data_num
+				&& nr - controller.retransmit_limit <= expected_data_num
+				&& nr > max_seen_data) {
+
+			auto datagram = "RETRANSMIT " + _(expected_data_num) + "\n";
+			INFO("RETRNASMIT ask to server");
+			sendDatagram(datagram);
 		}
+		if (data_count == 2) {
+			INFO("Re-send last DATA datagram");
+			sendDatagram(last_upload);
+		}
+		max_seen_data = std::max(max_seen_data, nr);
+	} else {
+		WARN("Wrong datagram schema.");
+	}
 
 	readDatagram();
 }
@@ -249,7 +258,6 @@ void Client::cyclicReadReports() {
 				std::string s;
 				std::getline(is, s);
 				std::cerr << "[RAPORT] " << s << std::endl;
-				INFO(s);
 				cyclicReadReports();
 			});
 }

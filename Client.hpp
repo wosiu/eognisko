@@ -43,62 +43,63 @@ class TroublesomeConnection: public std::exception
 
 class Client
 {
-private:
-	const unsigned BUFFER_SIZE = 66000;
-	const unsigned MAX_UP_SIZE = 880 * 10;
-	const unsigned KEEPALIVE_INTERVAL_MS = (IS_DEB) ? 2500 : 100;
-	const size_t ACTIVITY_CHECK_INTERVAL_S = (IS_DEB) ? 5 : 1;
+public:
+	Client(boost::asio::io_service& io_service, ClientController& controller);
 
 private:
-	unsigned id;
+	// Constants
+	const size_t KEEPALIVE_INTERVAL_MS = (IS_DEB) ? 2500 : 100;
+	const size_t ACTIVITY_CHECK_INTERVAL_S = (IS_DEB) ? 5 : 1;
+
+	// Client context
+	size_t id;
 	ClientController& controller;
+	DatagramParser parser;
+
+	// Sockets
 	ip::tcp::socket tcp_socket;
 	ip::udp::socket udp_socket;
 	ip::tcp::endpoint tcp_server_endpoint;
 	ip::udp::endpoint udp_server_endpoint, udp_recv_endpoint;
 
-	DatagramParser parser;
-
+	// Buffers
 	boost::asio::streambuf tcp_buffer;
 	char buffer_chararray[65535];
 	boost::array<char, 65535> buffer_boostarray;
-	std::vector<char> input_buffer;
-	std::string last_upload;
+	boost::array<char, 8800> stdin_buffer;
 	std::list<std::string> pending_datagrams;
 
+	// Timers
+	boost::asio::deadline_timer keepalive_timer;
+	boost::asio::deadline_timer activity_timer;
+
+	// std I/O descriptors
 	boost::asio::posix::stream_descriptor stdin;
 	boost::asio::posix::stream_descriptor stdout;
 
-	size_t expected_data_num, max_seen_data, upload_num, available_win, data_count;
+	size_t expected_data_num, max_seen_data, upload_num, available_win,
+			data_count;
+	std::string last_upload;
 	bool reading;
 	bool is_active;
-	//bool first_msg;
 
-private:
-	boost::asio::deadline_timer keepalive_timer, activity_timer;
-	// boost::asio::steady_timer //if something wrong try steady instead deadline..
-
-private:
+	// Functions:
 	void receiveID();
 	void readDatagram();
 	void cyclicReadReports();
+	void cylicSendKeepalive();
+	void cylicCheckActivity();
 	void sendDatagram(std::string msg);
 	void readStdInput();
 
-private:
+	// Binded async handlers
 	void connect(const boost::system::error_code &ec);
-
 	void processDatagram(const boost::system::error_code &ec,
 			size_t bytes_transferred);
 	void cyclicDatagramSend(const boost::system::error_code &ec,
 			size_t bytes_transferred);
 	void sendStdinInput(const boost::system::error_code &ec,
 			size_t bytes_transferred);
-	void cylicSendKeepalive();
-	void cylicCheckActivity();
-
-public:
-	Client(boost::asio::io_service& io_service, ClientController& controller);
 };
 
 #endif /* CLIENT_HPP_ */
