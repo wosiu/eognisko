@@ -24,11 +24,11 @@ int main(int argc, char** argv)
 	variables_map vm;
 	try {
 		store(parse_command_line(argc, argv, desc), vm);
-	} catch (boost::program_options::unknown_option& e) {
+		notify(vm);
+	} catch (const std::exception& e) {
 		std::cout << "Abort, " << e.what() << "\n";
 		return 0;
 	}
-	notify(vm);
 
 	if (vm.count("help")) {
 		std::cout << desc << "\n";

@@ -91,6 +91,7 @@ private:
 	void cylicCheckActivity();
 	void sendDatagram(std::string msg);
 	void readStdInput();
+	bool equal(ip::udp::endpoint a, ip::udp::endpoint b) const;
 
 	// Binded async handlers
 	void connect(const boost::system::error_code &ec);

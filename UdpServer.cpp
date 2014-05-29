@@ -7,10 +7,11 @@
 
 UdpServer::UdpServer(boost::asio::io_service& io_service,
 		ServerController& _controller) :
-		controller(_controller), timer_sound_send(io_service,
-				boost::posix_time::millisec(_controller.tx_interval)), timer_udp_check(
-				io_service, boost::posix_time::seconds(UDP_CHECK_INTERVAL_S)), socket_server_udp(
-				io_service, udp::endpoint(udp::v4(), _controller.port)) {
+			controller(_controller),
+			timer_sound_send(io_service, boost::posix_time::millisec(_controller.tx_interval)),
+			timer_udp_check(io_service, boost::posix_time::seconds(UDP_CHECK_INTERVAL_S)),
+			socket_server_udp(io_service, udp::endpoint(udp::v6(), _controller.port)) {
+
 	INFO("UDP server started.");
 	mixed_datagrams_counter = 0;
 	controller.turnOnUdpSever();

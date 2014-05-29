@@ -6,10 +6,13 @@
 #include "Client.hpp"
 
 Client::Client(boost::asio::io_service& io_service, ClientController& _controller) :
-		controller(_controller), tcp_socket(io_service),
-		udp_socket(io_service, ip::udp::endpoint(ip::udp::v4(), 0)),
-		stdin(io_service, dup(STDIN_FILENO)), stdout(io_service, dup(STDOUT_FILENO)),
-		keepalive_timer(io_service), activity_timer(io_service) {
+		controller(_controller),
+		tcp_socket(io_service),
+		udp_socket(io_service, ip::udp::endpoint(ip::udp::v6(), 0)),
+		keepalive_timer(io_service),
+		activity_timer(io_service),
+		stdin(io_service, dup(STDIN_FILENO)),
+		stdout(io_service, dup(STDOUT_FILENO)) {
 
 	INFO("Client started.");
 
@@ -28,14 +31,13 @@ Client::Client(boost::asio::io_service& io_service, ClientController& _controlle
 			ip::resolver_query_base::flags());
 	udp_server_endpoint = *(udp_resolver.resolve(query_udp));
 
-	LOG("Endpoints resolved, UDP: " + endpointToString(udp_server_endpoint) + ", TCP: " + endpointToString(tcp_server_endpoint));
+	INFO("Endpoints resolved, UDP: " + endpointToString(udp_server_endpoint) + ", TCP: " + endpointToString(tcp_server_endpoint));
 
 	// TCP connect
 	tcp_socket.connect(tcp_server_endpoint); //blocking, throwable
-
 	INFO("TCP connected.");
-
 	receiveID(); //blocking, throwable
+
 	cylicSendKeepalive();
 	readDatagram();
 	cyclicReadReports();
@@ -179,6 +181,18 @@ void Client::readDatagram() {
 }
 
 
+bool Client::equal(ip::udp::endpoint a, ip::udp::endpoint b) const {
+	if (a.address().is_v4() == b.address().is_v4() || a.address().is_v6() == b.address().is_v6())
+		return a.address() == b.address();
+
+	if (b.address().is_v4()) {
+		std::swap(a, b);
+	}
+
+	return "::ffff:" + a.address().to_string() == b.address().to_string();
+}
+
+
 void Client::processDatagram(const boost::system::error_code& ec,
 		size_t datagram_size) {
 
@@ -188,8 +202,8 @@ void Client::processDatagram(const boost::system::error_code& ec,
 	if (ec) {
 		ERR(ec);
 
-		//TODO to mala function
-	} else if (udp_recv_endpoint != udp_server_endpoint) {
+	//TODO to mala function
+	} else if (!equal(udp_recv_endpoint, udp_server_endpoint)) {
 		WARN("Data received from an unknown server: " + endpointToString(udp_recv_endpoint));
 
 	} else if (parser.matches_ack(buffer_boostarray.data(), ack, new_win)) {
@@ -206,6 +220,7 @@ void Client::processDatagram(const boost::system::error_code& ec,
 	} else if (parser.matches_data(buffer_boostarray.data(), datagram_size, nr,
 			ack, new_win, buffer_chararray, data_size)) {
 		LOG("Data (nr, ack, win) " + _(nr) + " " + _(ack) + " " + _(new_win));
+		is_active = true;
 		if (nr == expected_data_num || expected_data_num == 0
 				|| nr - controller.retransmit_limit > expected_data_num) {
 			data_count++;
@@ -258,6 +273,7 @@ void Client::cyclicReadReports() {
 				std::string s;
 				std::getline(is, s);
 				std::cerr << "[RAPORT] " << s << std::endl;
+				//is_active = true;
 				cyclicReadReports();
 			});
 }

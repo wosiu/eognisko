@@ -35,7 +35,7 @@ bool ServerController::removeClient(int id) {
 		return false;
 	}
 	boost::system::error_code ec;
-	auto tcp_endpoint = mit->second->getTcpSocket().remote_endpoint(ec);
+	mit->second->getTcpSocket().remote_endpoint(ec);
 	if (ec) {
 		INFO("Removing [TCP] disconnected client.");
 	} else {

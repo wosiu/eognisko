@@ -7,9 +7,11 @@
 
 TcpServer::TcpServer(boost::asio::io_service& io_service,
 		ServerController& _controller) :
-		controller(_controller), acceptor_(io_service,
-				tcp::endpoint(tcp::v4(), _controller.port)), socket_(
-				io_service), timer_(io_service, boost::posix_time::seconds(REPORT_INTERVAL_S)) {
+			controller(_controller),
+			acceptor_(io_service, tcp::endpoint(tcp::v6(), _controller.port)),
+			socket_(io_service),
+			timer_(io_service, boost::posix_time::seconds(REPORT_INTERVAL_S)) {
+
 	INFO("TCP server started.");
 	controller.turnOnTcpSever();
 	do_accept();
@@ -57,8 +59,8 @@ void TcpServer::send_reports_datagrams() {
 		boost::system::error_code ec;
 		auto fifo_size = boost::lexical_cast<std::string>(controller.fifo_size);
 
-		for (auto it = controller.map_udp_endpoint.begin();
-				it != controller.map_udp_endpoint.end(); ) {
+		for (auto it = controller.clients.begin();
+				it != controller.clients.end(); ) {
 			auto endpoint = it->second->getTcpSocket().remote_endpoint(ec);
 			if (ec) {
 				INFO(ec);
