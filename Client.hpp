@@ -81,21 +81,21 @@ private:
 private:
 	void receiveID();
 	void readDatagram();
+	void cyclicReadReports();
 	void sendDatagram(std::string msg);
-	void read_and_send();
+	void readStdInput();
 
 private:
 	void connect(const boost::system::error_code &ec);
-	void on_tcp_read(const boost::system::error_code &ec,
+
+	void processDatagram(const boost::system::error_code &ec,
 			size_t bytes_transferred);
-	void readDatagramHandler(const boost::system::error_code &ec,
+	void cyclicDatagramSend(const boost::system::error_code &ec,
 			size_t bytes_transferred);
-	void on_datagram_sent(const boost::system::error_code &ec,
+	void sendStdinInput(const boost::system::error_code &ec,
 			size_t bytes_transferred);
-	void on_input_read(const boost::system::error_code &ec,
-			size_t bytes_transferred);
-	void sendKeepalive();
-	void checkActivity();
+	void cylicSendKeepalive();
+	void cylicCheckActivity();
 
 public:
 	Client(boost::asio::io_service& io_service, ClientController& controller);

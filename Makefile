@@ -31,8 +31,8 @@ datagramparser.o : DatagramParser.cpp DatagramParser.hpp
 	g++ -c DatagramParser.cpp -o datagramparser.o $(CXXFLAGS) 
 
 
-client : client_main.cpp client.o packet_header.o commons.o datagramparser.o
-	g++ client_main.cpp client.o packet_header.o commons.o datagramparser.o -o client $(CXXFLAGS)
+client : client_main.cpp client.o  datagramparser.o commons.o
+	g++ client_main.cpp client.o datagramparser.o commons.o -o client $(CXXFLAGS)
 
 client.o : Client.cpp Client.hpp
 	g++ -c Client.cpp -o client.o $(CXXFLAGS) 

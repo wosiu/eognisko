@@ -36,10 +36,11 @@ Client::Client(boost::asio::io_service& io_service, ClientController& _controlle
 
 	INFO("TCP connected.");
 
-	receiveID(); //blocking
-	sendKeepalive();
+	receiveID(); //blocking, throwable
+	cylicSendKeepalive();
 	readDatagram();
-	checkActivity();
+	cyclicReadReports();
+	cylicCheckActivity();
 }
 
 
@@ -54,13 +55,13 @@ void Client::receiveID() {
 		throw TroublesomeConnection();
 	}
 	INFO("My id: " + _(client_id) + ". Re-send to server my id via UDP.");
-	udp_socket.send_to(boost::asio::buffer(buffer_boostarray, s), udp_server_endpoint);
+	udp_socket.send_to(boost::asio::buffer(buffer_boostarray, s), udp_server_endpoint); //blocking
 }
 
 
-void Client::sendKeepalive() {
+void Client::cylicSendKeepalive() {
 	sendDatagram("KEEPALIVE\n");
-	LOG("KEEPALIVE sent.");
+	LOG("KEEPALIVE datagram processing.");
 
 	keepalive_timer.expires_from_now(boost::posix_time::milliseconds(KEEPALIVE_INTERVAL_MS));
 	keepalive_timer.async_wait(
@@ -68,11 +69,12 @@ void Client::sendKeepalive() {
 					if (ec) {
 						ERR(ec);
 					}
-					sendKeepalive();
+					cylicSendKeepalive();
 					});
 }
 
-void Client::checkActivity() {
+
+void Client::cylicCheckActivity() {
 	LOG("Activity check: " + _(is_active));
 	if (!is_active && !IS_DEB) {
 		WARN("No activity was observed. Stopping.")
@@ -87,46 +89,10 @@ void Client::checkActivity() {
 				if (ec) {
 					ERR(ec);
 				}
-				checkActivity();
+				cylicCheckActivity();
 			});
 }
 
-void Client::readDatagram() {
-	buffer_boostarray.assign(0);
-	udp_socket.async_receive_from(boost::asio::buffer(buffer_boostarray),
-			udp_recv_endpoint,
-			std::bind(&Client::readDatagramHandler, this, std::placeholders::_1,
-					std::placeholders::_2));
-}
-
-
-void Client::read_and_send() {
-	if (available_win == 0) {
-		return;
-	}
-	reading = true;
-	boost::asio::async_read(
-			stdin,
-			boost::asio::buffer(input_buffer,
-					std::min(input_buffer.size(), available_win)),
-			std::bind(&Client::on_input_read, this, std::placeholders::_1,
-					std::placeholders::_2));
-}
-
-void Client::on_input_read(const boost::system::error_code &ec,
-		size_t bytes_transferred) {
-	if (!ec) {
-		auto data = input_buffer.data();
-		auto datagram = "UPLOAD " + _(upload_num) + "\n" + std::string (data, data + bytes_transferred);
-		sendDatagram(datagram);
-		upload_num++;
-		last_upload = std::move(datagram);
-	} else {
-		ERR(ec);
-	}
-	reading = false;
-	data_count = 0;
-}
 
 
 void Client::sendDatagram(std::string msg) {
@@ -140,21 +106,24 @@ void Client::sendDatagram(std::string msg) {
 	if (can_send) {
 		udp_socket.async_send_to(boost::asio::buffer(pending_datagrams.front()),
 				udp_server_endpoint,
-				std::bind(&Client::on_datagram_sent, this,
+				std::bind(&Client::cyclicDatagramSend, this,
 						std::placeholders::_1, std::placeholders::_2));
+	} else {
+		LOG("Data queued to send");
 	}
 }
 
 
-void Client::on_datagram_sent(const boost::system::error_code& ec,
+void Client::cyclicDatagramSend(const boost::system::error_code& ec,
 		size_t datagram_size) {
 	if (!ec) {
+		LOG("Sending data via UDP");
 		pending_datagrams.pop_front();
 		if (!pending_datagrams.empty()) {
 			udp_socket.async_send_to(
-					boost::asio::buffer(pending_datagrams.front()),
+					boost::asio::buffer(std::move(pending_datagrams.front())),
 					udp_server_endpoint,
-					std::bind(&Client::on_datagram_sent, this,
+					std::bind(&Client::cyclicDatagramSend, this,
 							std::placeholders::_1, std::placeholders::_2));
 		}
 	} else {
@@ -163,9 +132,52 @@ void Client::on_datagram_sent(const boost::system::error_code& ec,
 }
 
 
-void Client::readDatagramHandler(const boost::system::error_code& ec,
+void Client::readStdInput() {
+	if (available_win == 0) {
+		LOG("No window available. Abort reading from stdin.");
+		return;
+	}
+	LOG("Reading from stdin.");
+	reading = true;
+	boost::asio::async_read(
+			stdin,
+			boost::asio::buffer(input_buffer,
+					std::min(input_buffer.size(), available_win)),
+			std::bind(&Client::sendStdinInput, this, std::placeholders::_1,
+					std::placeholders::_2));
+}
+
+
+void Client::sendStdinInput(const boost::system::error_code &ec,
+		size_t bytes_transferred) {
+	if (!ec) {
+		LOG("Send stdin");
+		auto data = input_buffer.data();
+		auto datagram = "UPLOAD " + _(upload_num) + "\n" + std::string (data, data + bytes_transferred);
+		sendDatagram(datagram);
+		upload_num++;
+		last_upload = std::move(datagram);
+	} else {
+		ERR(ec);
+	}
+	reading = false;
+	data_count = 0;
+}
+
+
+void Client::readDatagram() {
+	buffer_boostarray.assign(0);
+	udp_socket.async_receive_from(boost::asio::buffer(buffer_boostarray),
+			udp_recv_endpoint,
+			std::bind(&Client::processDatagram, this, std::placeholders::_1,
+					std::placeholders::_2));
+}
+
+
+void Client::processDatagram(const boost::system::error_code& ec,
 		size_t datagram_size) {
 
+	LOG("Datagram via UDP read");
 	size_t ack, nr, new_win, data_size;
 
 	if ( ec ) {
@@ -182,11 +194,12 @@ void Client::readDatagramHandler(const boost::system::error_code& ec,
 			data_count = 0;
 			available_win = new_win;
 			if (!reading) {
-				read_and_send();
+				readStdInput();
 			}
 		}
 
 	} else if ( parser.matches_data(buffer_boostarray.data(), datagram_size, nr,  ack, new_win, buffer_chararray, data_size) ) {
+			LOG("Data (nr, ack, win) " + _(nr) + " " + _(ack) + " " + _(new_win) );
 			if ( nr == expected_data_num || expected_data_num == 0
 					|| nr - controller.retransmit_limit > expected_data_num) {
 				data_count++;
@@ -194,10 +207,11 @@ void Client::readDatagramHandler(const boost::system::error_code& ec,
 					data_count = 0;
 					available_win = new_win;
 					if (!reading) {
-						read_and_send();
+						readStdInput();
 					}
 				}
 				try {
+					LOG("Write mixed data to stdout");
 					boost::asio::write(stdout, boost::asio::buffer(buffer_chararray, data_size));
 				} catch (std::exception &e) {
 					ERR(e.what());
@@ -223,21 +237,19 @@ void Client::readDatagramHandler(const boost::system::error_code& ec,
 }
 
 
-void Client::on_tcp_read(const boost::system::error_code& ec,
-		size_t datagram_size) {
-	if (!ec) {
-		std::istream is(&tcp_buffer);
-		std::string s;
-		std::getline(is, s);
-		std::cerr << s << std::endl;
-		boost::asio::async_read_until(tcp_socket, tcp_buffer, '\n',
-				std::bind(&Client::on_tcp_read, this, std::placeholders::_1,
-						std::placeholders::_2));
-	} else {
-		throw TroublesomeConnection();
-	}
+void Client::cyclicReadReports() {
+	boost::asio::async_read_until(tcp_socket, tcp_buffer, '\n',
+			[this](boost::system::error_code ec, std::size_t datagram_size) {
+				if (ec) {
+					ERR(ec);
+					throw TroublesomeConnection();
+				}
+				LOG("Read report from server via TCP.");
+				std::istream is(&tcp_buffer);
+				std::string s;
+				std::getline(is, s);
+				std::cerr << "[RAPORT] " << s << std::endl;
+				INFO(s);
+				cyclicReadReports();
+			});
 }
-
-
-
-
