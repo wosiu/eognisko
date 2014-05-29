@@ -32,7 +32,6 @@ public:
 	void turnOnUdpSever();
 	bool is_tcp_server_on, is_udp_server_on; //for developing aspects
 
-
 private:
 	uint32_t next_id;
 

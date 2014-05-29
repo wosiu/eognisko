@@ -57,6 +57,7 @@ private:
 	void cyclicDatagramSend(const boost::system::error_code& ec, size_t datagram_size);
 };
 
+
 class DatagramException: public std::exception
 {
   virtual const char* what() const throw(){

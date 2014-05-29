@@ -31,10 +31,10 @@ private:
 	tcp::socket socket_;
 	boost::asio::deadline_timer timer_;
 
-	void do_accept();
-	void send_reports_datagrams();
-	void send_id_datagram(std::shared_ptr<ClientContext> cc);
-	void write_or_remove(std::shared_ptr<ClientContext> cc, const std::string& datagram);
+	void acceptClient();
+	void sendReports();
+	void sendId(std::shared_ptr<ClientContext> cc);
+	void writeOrRemove(std::shared_ptr<ClientContext> cc, const std::string& datagram);
 };
 
 #endif /* TCP_SERVER_HPP_ */

@@ -97,7 +97,6 @@ void Client::cylicCheckActivity() {
 }
 
 
-
 void Client::sendDatagram(std::string msg) {
 	// sync, blocking version:
 	// udp_socket.send_to(boost::asio::buffer(std::move(msg)), udp_server_endpoint);

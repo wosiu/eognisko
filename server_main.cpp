@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
 	ServerController controller;
 	boost::asio::io_service io_service;
 
-	//Parsowanie argumentow
+	//Parsing args
 	options_description desc("Allowed options");
 	desc.add_options()("help", "help view")(",p",
 			value<uint16_t>(&controller.port)->default_value(
@@ -54,7 +54,6 @@ int main(int argc, char **argv) {
 		controller.high_mark = 4;
 	}
 
-	//Praca
 	TcpServer tcp_server(io_service, controller);
 	UdpServer udp_server(io_service, controller);
 

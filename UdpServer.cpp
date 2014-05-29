@@ -64,8 +64,8 @@ void UdpServer::processingMixed() {
 
 void UdpServer::sendDatagram(std::string msg, udp::endpoint& udp_client_endpoint) {
 	// sync, blocking version:
-	socket_server_udp.send_to(boost::asio::buffer(std::move(msg)), udp_client_endpoint);
-	return;
+	//socket_server_udp.send_to(boost::asio::buffer(std::move(msg)), udp_client_endpoint);
+	//return;
 	// async, nonblocking with datagrams ready to send queue:
 	bool can_send = pending_datagrams.empty();
 	pending_datagrams.push_back(message(udp_client_endpoint, std::move(msg)));
