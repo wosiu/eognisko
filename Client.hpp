@@ -63,8 +63,8 @@ private:
 	char buffer_chararray[65535];
 	boost::array<char, 65535> buffer_boostarray;
 	std::vector<char> input_buffer;
-	std::vector<char> last_upload;
-	std::list<std::vector<char> > pending_datagrams;
+	std::string last_upload;
+	std::list<std::string> pending_datagrams;
 
 	boost::asio::posix::stream_descriptor stdin;
 	boost::asio::posix::stream_descriptor stdout;
@@ -81,7 +81,7 @@ private:
 private:
 	void receiveID();
 	void readDatagram();
-	void sendDatagram(std::vector<char> msg);
+	void sendDatagram(std::string msg);
 	void read_and_send();
 
 private:

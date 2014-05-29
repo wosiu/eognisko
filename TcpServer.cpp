@@ -49,7 +49,7 @@ void TcpServer::do_accept() {
 
 void TcpServer::send_reports_datagrams() {
 	// Note, that sending reports will start when first client come
-	if (controller.clients.empty()) {
+	if (controller.map_udp_endpoint.empty()) {
 		LOG("No clients to send report.");
 	} else {
 
@@ -57,8 +57,8 @@ void TcpServer::send_reports_datagrams() {
 		boost::system::error_code ec;
 		auto fifo_size = boost::lexical_cast<std::string>(controller.fifo_size);
 
-		for (auto it = controller.clients.begin();
-				it != controller.clients.end(); ) {
+		for (auto it = controller.map_udp_endpoint.begin();
+				it != controller.map_udp_endpoint.end(); ) {
 			auto endpoint = it->second->getTcpSocket().remote_endpoint(ec);
 			if (ec) {
 				INFO(ec);

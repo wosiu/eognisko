@@ -4,7 +4,6 @@
  */
 
 #include "Client.hpp"
-#include "packet_header.h"
 
 Client::Client(boost::asio::io_service& io_service, ClientController& _controller) :
 		controller(_controller), tcp_socket(io_service),
@@ -17,7 +16,6 @@ Client::Client(boost::asio::io_service& io_service, ClientController& _controlle
 
 	data_count = max_seen_data = upload_num = available_win = expected_data_num = 0;
 	is_active = true;
-	//todo first_msg =
 	reading = false;
 
 	// Resolving endpoints (throwable)
@@ -34,43 +32,34 @@ Client::Client(boost::asio::io_service& io_service, ClientController& _controlle
 	LOG("Endpoints resolved, UDP: " + endpointToString(udp_server_endpoint) + ", TCP: " + endpointToString(tcp_server_endpoint));
 
 	// TCP connect
-	tcp_socket.async_connect(tcp_server_endpoint,
-			std::bind(&Client::connect, this, std::placeholders::_1));
-}
+	tcp_socket.connect(tcp_server_endpoint); //blocking, throwable
 
-void Client::connect(const boost::system::error_code& ec) {
-	if (!ec) {
-		INFO("TCP connected.");
+	INFO("TCP connected.");
 
-		receiveID(); //blocking
-		sendKeepalive();
-		readDatagram();
-		checkActivity();
-
-	} else {
-		ERR(ec);
-		throw TroublesomeConnection();
-	}
+	receiveID(); //blocking
+	sendKeepalive();
+	readDatagram();
+	checkActivity();
 }
 
 
 void Client::receiveID() {
 	LOG("Waiting for client id from server via TCP.");
 
-	tcp_socket.receive(boost::asio::buffer(buffer_chararray, 20)); // throwable
+	buffer_boostarray.assign(0);
+	auto s = tcp_socket.receive(boost::asio::buffer(buffer_boostarray, 20)); // throwable
 	size_t client_id;
-	if ( !parser.matches_client_id(buffer_chararray, client_id) ) {
+	if ( !parser.matches_client_id(buffer_boostarray.data(), client_id) ) {
 		ERR("Wrong CLIENT datagram schema.")
 		throw TroublesomeConnection();
 	}
-	size_t s = strlen(buffer_chararray);
 	INFO("My id: " + _(client_id) + ". Re-send to server my id via UDP.");
-	udp_socket.send_to(boost::asio::buffer(buffer_chararray, s), udp_server_endpoint);
+	udp_socket.send_to(boost::asio::buffer(buffer_boostarray, s), udp_server_endpoint);
 }
 
 
 void Client::sendKeepalive() {
-	udp_socket.send_to(boost::asio::buffer("KEEPALIVE\n"), udp_server_endpoint);
+	sendDatagram("KEEPALIVE\n");
 	LOG("KEEPALIVE sent.");
 
 	keepalive_timer.expires_from_now(boost::posix_time::milliseconds(KEEPALIVE_INTERVAL_MS));
@@ -110,24 +99,14 @@ void Client::readDatagram() {
 					std::placeholders::_2));
 }
 
-void Client::sendDatagram(std::vector<char> msg) {
-	bool can_send = pending_datagrams.empty();
-	pending_datagrams.push_front(std::move(msg));
-
-	if (can_send) {
-		udp_socket.async_send_to(boost::asio::buffer(pending_datagrams.front()),
-				udp_server_endpoint,
-				std::bind(&Client::on_datagram_sent, this,
-						std::placeholders::_1, std::placeholders::_2));
-	}
-}
 
 void Client::read_and_send() {
-	if (available_win == 0)
+	if (available_win == 0) {
 		return;
+	}
 	reading = true;
 	boost::asio::async_read(
-	stdin,
+			stdin,
 			boost::asio::buffer(input_buffer,
 					std::min(input_buffer.size(), available_win)),
 			std::bind(&Client::on_input_read, this, std::placeholders::_1,
@@ -137,20 +116,52 @@ void Client::read_and_send() {
 void Client::on_input_read(const boost::system::error_code &ec,
 		size_t bytes_transferred) {
 	if (!ec) {
-		std::vector<char> msg(bytes_transferred + 100);
-		PacketHeader h(PacketHeader::Type::UPLOAD, upload_num);
-		h.build(msg.data());
-		memcpy(msg.data() + h.get_header_size(), input_buffer.data(),
-				bytes_transferred);
-		msg.resize(h.get_header_size() + bytes_transferred);
-		sendDatagram(msg);
+		auto data = input_buffer.data();
+		auto datagram = "UPLOAD " + _(upload_num) + "\n" + std::string (data, data + bytes_transferred);
+		sendDatagram(datagram);
 		upload_num++;
-		last_upload = std::move(msg);
-	} else
-		std::cerr << "[Client] " << ec << std::endl;
+		last_upload = std::move(datagram);
+	} else {
+		ERR(ec);
+	}
 	reading = false;
 	data_count = 0;
 }
+
+
+void Client::sendDatagram(std::string msg) {
+	// sync, blocking version:
+	// udp_socket.send_to(boost::asio::buffer(std::move(msg)), udp_server_endpoint);
+
+	// async, nonblocking with datagrams ready to send queue:
+	bool can_send = pending_datagrams.empty();
+	pending_datagrams.push_back(std::move(msg));
+
+	if (can_send) {
+		udp_socket.async_send_to(boost::asio::buffer(pending_datagrams.front()),
+				udp_server_endpoint,
+				std::bind(&Client::on_datagram_sent, this,
+						std::placeholders::_1, std::placeholders::_2));
+	}
+}
+
+
+void Client::on_datagram_sent(const boost::system::error_code& ec,
+		size_t datagram_size) {
+	if (!ec) {
+		pending_datagrams.pop_front();
+		if (!pending_datagrams.empty()) {
+			udp_socket.async_send_to(
+					boost::asio::buffer(pending_datagrams.front()),
+					udp_server_endpoint,
+					std::bind(&Client::on_datagram_sent, this,
+							std::placeholders::_1, std::placeholders::_2));
+		}
+	} else {
+		ERR(ec);
+	}
+}
+
 
 void Client::readDatagramHandler(const boost::system::error_code& ec,
 		size_t datagram_size) {
@@ -197,12 +208,8 @@ void Client::readDatagramHandler(const boost::system::error_code& ec,
 					&& nr - controller.retransmit_limit <= expected_data_num
 					&& nr > max_seen_data) {
 
-				std::vector<char> msg(100);
-				PacketHeader h(PacketHeader::Type::RETRANSMIT,
-						expected_data_num);
-				h.build(msg.data());
-				msg.resize(h.get_header_size());
-				sendDatagram(std::move(msg));
+				auto datagram = "RETRANSMIT " + _(expected_data_num) + "\n";
+				sendDatagram(datagram);
 			}
 			if (data_count == 2) {
 				sendDatagram(last_upload);
@@ -210,29 +217,11 @@ void Client::readDatagramHandler(const boost::system::error_code& ec,
 			max_seen_data = std::max(max_seen_data, nr);
 		} else {
 			WARN("Wrong datagram schema.");
-			ERR( buffer_boostarray.data() );
-			exit(0);
 		}
 
 	readDatagram();
 }
 
-void Client::on_datagram_sent(const boost::system::error_code& ec,
-		size_t datagram_size) {
-	if (!ec) {
-		pending_datagrams.pop_front();
-		if (!pending_datagrams.empty()) {
-			udp_socket.async_send_to(
-					boost::asio::buffer(pending_datagrams.front()),
-					udp_server_endpoint,
-					std::bind(&Client::on_datagram_sent, this,
-							std::placeholders::_1, std::placeholders::_2));
-		}
-	} else {
-		std::cerr << "[Client] Error " << ec << " when sending datagram"
-				<< std::endl;
-	}
-}
 
 void Client::on_tcp_read(const boost::system::error_code& ec,
 		size_t datagram_size) {

@@ -37,9 +37,6 @@ client : client_main.cpp client.o packet_header.o commons.o datagramparser.o
 client.o : Client.cpp Client.hpp
 	g++ -c Client.cpp -o client.o $(CXXFLAGS) 
 
-packet_header.o : packet_header.cpp packet_header.h
-	g++ -c packet_header.cpp -o packet_header.o $(CXXFLAGS) 
-
 clean:
 	rm -f *.o
 	rm client server
