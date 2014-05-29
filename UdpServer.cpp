@@ -18,7 +18,7 @@ UdpServer::UdpServer(boost::asio::io_service& io_service,
 	// start receiving
 	receiveDatagram();
 	// start sending data to clients
-	timer_sound_send.async_wait(boost::bind(&UdpServer::sendMixed, this));
+	timer_sound_send.async_wait(boost::bind(&UdpServer::processingMixed, this));
 	// start checking UDP clients' connections
 	if ( !IS_DEB ) {
 		timer_udp_check.async_wait(
@@ -30,7 +30,7 @@ UdpServer::UdpServer(boost::asio::io_service& io_service,
 
 
 // run mixing and sending datagram DATA with mixed data to clients
-void UdpServer::sendMixed() {
+void UdpServer::processingMixed() {
 	if (controller.map_udp_endpoint.empty()) {
 		LOG("No ready clients to send mixed data.");
 	} else {
@@ -51,17 +51,55 @@ void UdpServer::sendMixed() {
 
 			header += mixed_data;
 			auto endpoint = it->first;
-			socket_server_udp.send_to(boost::asio::buffer(std::move(header)), endpoint);
+			sendDatagram(std::move(header), endpoint);
 		}
 
 		store_mixed_data(mixed_datagrams_counter, mixed_data);
 		mixed_datagrams_counter++;
 	}
 	timer_sound_send.expires_at(timer_sound_send.expires_at() + boost::posix_time::millisec(controller.tx_interval));
-	//timer_sound_send.expires_from_now(
-	//		boost::posix_time::millisec(controller.tx_interval));
-	timer_sound_send.async_wait(boost::bind(&UdpServer::sendMixed, this));
+	timer_sound_send.async_wait(boost::bind(&UdpServer::processingMixed, this));
 }
+
+
+void UdpServer::sendDatagram(std::string msg, udp::endpoint& udp_client_endpoint) {
+	// sync, blocking version:
+	socket_server_udp.send_to(boost::asio::buffer(std::move(msg)), udp_client_endpoint);
+	return;
+	// async, nonblocking with datagrams ready to send queue:
+	bool can_send = pending_datagrams.empty();
+	pending_datagrams.push_back(message(udp_client_endpoint, std::move(msg)));
+
+	if (can_send) {
+		socket_server_udp.async_send_to(boost::asio::buffer(pending_datagrams.front().second),
+				udp_client_endpoint,
+				std::bind(&UdpServer::cyclicDatagramSend, this,
+						std::placeholders::_1, std::placeholders::_2));
+	} else {
+		LOG("Data queued to send");
+	}
+}
+
+
+void UdpServer::cyclicDatagramSend(const boost::system::error_code& ec,
+		size_t datagram_size) {
+
+	if (!ec) {
+		LOG("Sending data via UDP");
+		pending_datagrams.pop_front();
+		auto datagram = pending_datagrams.front();
+		if (!pending_datagrams.empty()) {
+			socket_server_udp.async_send_to(
+					boost::asio::buffer(std::move(datagram.second)),
+					datagram.first,
+					std::bind(&UdpServer::cyclicDatagramSend, this,
+							std::placeholders::_1, std::placeholders::_2));
+		}
+	} else {
+		ERR(ec);
+	}
+}
+
 
 void UdpServer::receiveDatagram() {
 	socket_server_udp.async_receive_from(boost::asio::buffer(message_buffer),

@@ -10,6 +10,7 @@
 #include <sstream>
 #include <memory>
 #include <string>
+#include <list>
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
@@ -24,11 +25,11 @@ class TcpServer {
 public:
 	TcpServer(boost::asio::io_service& _io_service, ServerController& _controller);
 private:
+	const uint16_t REPORT_INTERVAL_S = (IS_DEB) ? 15 : 1;
 	ServerController& controller;
 	tcp::acceptor acceptor_;
 	tcp::socket socket_;
 	boost::asio::deadline_timer timer_;
-	static const uint16_t REPORT_INTERVAL_S = (IS_DEB) ? 15 : 1;
 
 	void do_accept();
 	void send_reports_datagrams();

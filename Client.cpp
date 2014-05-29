@@ -273,7 +273,6 @@ void Client::cyclicReadReports() {
 				std::string s;
 				std::getline(is, s);
 				std::cerr << "[RAPORT] " << s << std::endl;
-				//is_active = true;
 				cyclicReadReports();
 			});
 }
