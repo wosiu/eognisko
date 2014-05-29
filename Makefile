@@ -3,40 +3,23 @@ all : client server
 CXXFLAGS = -ggdb -Wall --std=c++11 -lboost_system -lpthread -lboost_program_options -lboost_regex
 #CXXFLAGS = -O2 --std=c++11 -lboost_system -lpthread -lboost_program_options -lboost_regex
 
-tmp :
-	g++ tmp.cpp -o tmp $(CXXFLAGS) 
+OBJSERVER = server_main.o TcpServer.o UdpServer.o ServerController.o ClientContext.o commons.o mixer.o DatagramParser.o
+OBJCLIENT = client_main.o Client.o  DatagramParser.o commons.o
 
-server : server_main.cpp tcpserver.o udpserver.o servercontroller.o clientcontext.o commons.o mixer.o datagramparser.o
-	g++ server_main.cpp tcpserver.o udpserver.o servercontroller.o clientcontext.o commons.o mixer.o datagramparser.o -o server $(CXXFLAGS)
+%.o: %.cpp
+	g++ -c $< $(CXXFLAGS)
 
-tcpserver.o : TcpServer.cpp TcpServer.hpp
-	g++ -c TcpServer.cpp -o tcpserver.o $(CXXFLAGS) 
+server: $(OBJSERVER) 
+	g++ $^ -o $@ $(CXXFLAGS)
 
-servercontroller.o : ServerController.cpp ServerController.hpp 
-	g++ -c ServerController.cpp -o servercontroller.o  $(CXXFLAGS)
+client: $(OBJCLIENT)
+	g++ $^ -o $@ $(CXXFLAGS)
 
-clientcontext.o : ClientContext.cpp ClientContext.hpp 
-	g++ -c ClientContext.cpp -o clientcontext.o $(CXXFLAGS) 
+sclean:
+	rm -f $(OBJSERVER) server
 
-commons.o : commons.hpp commons.cpp
-	g++ -c commons.cpp $(CXXFLAGS) 
-
-mixer.o : mixer.hpp mixer.cpp
-	g++ -c mixer.cpp -o mixer.o $(CXXFLAGS) 
-
-udpserver.o : UdpServer.cpp UdpServer.hpp
-	g++ -c UdpServer.cpp -o udpserver.o $(CXXFLAGS) 
-
-datagramparser.o : DatagramParser.cpp DatagramParser.hpp
-	g++ -c DatagramParser.cpp -o datagramparser.o $(CXXFLAGS) 
-
-
-client : client_main.cpp client.o  datagramparser.o commons.o
-	g++ client_main.cpp client.o datagramparser.o commons.o -o client $(CXXFLAGS)
-
-client.o : Client.cpp Client.hpp
-	g++ -c Client.cpp -o client.o $(CXXFLAGS) 
+cclean:
+	rm -f $(OBJCLIENT) client
 
 clean:
-	rm -f *.o
-	rm client server
+	rm -f *.o client server
